@@ -54,10 +54,9 @@ const Customization: React.FC = () => {
   
   // Available sizes for polaroids
   const polaroidSizes = [
-    { id: 'large', name: 'Large (4×6 inches)', price: 199 },
-    { id: 'normal', name: 'Normal (3×4 inches)', price: 149 },
-    { id: 'mini', name: 'Mini (2×3 inches)', price: 99 },
-    { id: 'wallet', name: 'Wallet Card (2×2.5 inches)', price: 79 }
+    { id: 'large', name: 'Large (3.3×2.2 inch)', price: 200 },
+    { id: 'normal', name: 'Normal (2×2.5 inches)', price: 150 },
+    { id: 'wallet', name: 'Wallet Card (2.5×3 inches)', price: 170 }
   ];
   
   // Available frame types
@@ -122,7 +121,7 @@ const Customization: React.FC = () => {
       return sizePrice * posterConfig.quantity;
     } else if (selectedProductType === 'polaroid') {
       return polaroidConfig.items.reduce((total, item) => {
-        const sizePrice = polaroidSizes.find(s => s.id === item.size)?.price || 149;
+        const sizePrice = polaroidSizes.find(s => s.id === item.size)?.price || 150;
         return total + sizePrice;
       }, 0);
     }
@@ -154,7 +153,7 @@ const Customization: React.FC = () => {
     } else if (selectedProductType === 'polaroid' && polaroidConfig.items.some(item => item.image)) {
       polaroidConfig.items.forEach((item, index) => {
         if (item.image) {
-          const sizePrice = polaroidSizes.find(s => s.id === item.size)?.price || 149;
+          const sizePrice = polaroidSizes.find(s => s.id === item.size)?.price || 150;
           const customProduct = {
             id: `polaroid-${Date.now()}-${index}`,
             name: `Custom Polaroid ${index + 1} (${item.size} - ${item.frameType})`,
@@ -242,9 +241,9 @@ const Customization: React.FC = () => {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Personalized Polaroids</h3>
                 <p className="text-gray-600 mb-4">Upload Your Photos with Custom Options</p>
                 <div className="text-sm text-gray-500 space-y-1">
-                  <p><strong>Sizes:</strong> Large, Normal, Mini, Wallet Card</p>
+                  <p><strong>Sizes:</strong> Large, Normal, Wallet Card</p>
                   <p><strong>Frames:</strong> Normal, Spotify, Instagram, Full, Film Strip, Music Player</p>
-                  <p><strong>Starting from ₹79</strong></p>
+                  <p><strong>Starting from ₹150</strong></p>
                 </div>
               </div>
             </div>

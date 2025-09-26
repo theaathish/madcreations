@@ -36,7 +36,7 @@ export interface ShippingAddress {
 }
 
 export interface Order {
-  id?: string;
+  id: string;
   userId: string;
   customerName: string;
   customerEmail: string;
@@ -53,6 +53,8 @@ export interface Order {
   orderDate?: any;
   createdAt?: any;
   updatedAt?: any;
+  deliveryLink?: string;
+  trackingNumber?: string;
   // Add any other order fields you need
 }
 

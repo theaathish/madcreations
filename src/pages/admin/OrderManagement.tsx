@@ -10,10 +10,11 @@ import {
   Clock,
   Link,
   Save,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { ordersService } from '../../services/firebaseService';
-import { Order } from '../../types';
+import { Order, OrderItem } from '../../types';
 
 const OrderManagement: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -190,23 +191,184 @@ const OrderManagement: React.FC = () => {
     setTrackingNumber('');
   };
 
-  // Custom image download functionality
+  // Enhanced custom image download functionality
   const downloadCustomImage = async (imageUrl: string, filename: string) => {
     try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      // Method 1: Try direct fetch (works for same-origin or CORS-enabled images)
+      try {
+        const response = await fetch(imageUrl, {
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          console.log('✅ Direct download successful:', filename);
+          return;
+        }
+      } catch (fetchError) {
+        console.log('Direct fetch failed, trying alternative method:', fetchError);
+      }
+      
+      // Method 2: If fetch fails, try opening in new tab (fallback)
+      // This works for Firebase Storage and other external images
       const link = document.createElement('a');
-      link.href = url;
+      link.href = imageUrl;
       link.download = filename;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // For Firebase Storage URLs, add download parameter
+      if (imageUrl.includes('firebasestorage.googleapis.com')) {
+        const url = new URL(imageUrl);
+        url.searchParams.set('alt', 'media');
+        url.searchParams.set('token', url.searchParams.get('token') || '');
+        link.href = url.toString();
+      }
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Alternative download method used:', filename);
+      
+      // Show success message
+      alert(`Download initiated for ${filename}. If the download doesn't start automatically, the image will open in a new tab where you can right-click and save it.`);
+      
     } catch (error) {
-      console.error('Error downloading image:', error);
-      alert('Failed to download image. Please try again.');
+      console.error('❌ Error downloading image:', error);
+      
+      // Method 3: Final fallback - copy URL to clipboard
+      try {
+        await navigator.clipboard.writeText(imageUrl);
+        alert(`Unable to download directly. Image URL copied to clipboard: ${filename}\n\nYou can paste this URL in a new tab to view and save the image.`);
+      } catch (clipboardError) {
+        alert(`Unable to download image: ${filename}\n\nImage URL: ${imageUrl}\n\nPlease copy this URL and paste it in a new tab to view and save the image.`);
+      }
     }
+  };
+
+  // Bulk download function for all custom images in an order
+  const downloadAllCustomImages = async (order: Order) => {
+    const customImages: Array<{url: string, filename: string}> = [];
+    
+    order.items.forEach((item, itemIndex) => {
+      if (item.customizations?.customImages) {
+        item.customizations.customImages.forEach((imageUrl: string, imgIndex: number) => {
+          const itemName = (item as any)?.name || (item as any)?.product?.name || 'product';
+          customImages.push({
+            url: imageUrl,
+            filename: `${itemName}-order-${order.id}-item-${itemIndex + 1}-image-${imgIndex + 1}.jpg`
+          });
+        });
+      }
+    });
+    
+    if (customImages.length === 0) {
+      alert('No custom images found in this order.');
+      return;
+    }
+    
+    alert(`Starting download of ${customImages.length} custom images. Please wait...`);
+    
+    for (let i = 0; i < customImages.length; i++) {
+      const { url, filename } = customImages[i];
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between downloads
+      await downloadCustomImage(url, filename);
+    }
+    
+    alert(`Download process completed for ${customImages.length} images.`);
+  };
+
+  // WhatsApp confirmation message function
+  const sendWhatsAppConfirmation = (order: Order) => {
+    const formatOrderItems = (items: OrderItem[]) => {
+      return items.map((item, index) => {
+        let itemText = `${index + 1}. ${item.name} - Qty: ${item.quantity} - ₹${item.price}`;
+        
+        // Add customization details if available
+        if (item.customizations) {
+          const customDetails = [];
+          if (item.customizations.customText) {
+            customDetails.push(`Custom Text: "${item.customizations.customText}"`);
+          }
+          if (item.customizations.spotifyUrl) {
+            customDetails.push(`Spotify Link: ${item.customizations.spotifyUrl}`);
+          }
+          if (item.customizations.customImages?.length > 0) {
+            customDetails.push(`Custom Images: ${item.customizations.customImages.length} uploaded`);
+          }
+          
+          if (customDetails.length > 0) {
+            itemText += `\n   ${customDetails.join('\n   ')}`;
+          }
+        }
+        
+        return itemText;
+      }).join('\n\n');
+    };
+
+    const message = `🎉 *ORDER CONFIRMATION* 🎉
+
+Dear ${order.customerName},
+
+Your order has been confirmed! Here are the details:
+
+📋 *Order Details:*
+Order ID: #${order.id}
+Date: ${new Date(order.orderDate?.seconds * 1000 || Date.now()).toLocaleDateString('en-IN')}
+Status: ${order.status.toUpperCase()}
+
+🛍️ *Items Ordered:*
+${formatOrderItems(order.items)}
+
+💰 *Payment Summary:*
+Subtotal: ₹${order.subtotal.toLocaleString()}
+Shipping: ₹${order.shippingCost.toLocaleString()}
+*Total: ₹${order.total.toLocaleString()}*
+
+📦 *Shipping Address:*
+${order.shippingAddress.address}
+${order.shippingAddress.city}, ${order.shippingAddress.state}
+PIN: ${order.shippingAddress.pincode}
+
+📞 *Contact Information:*
+Phone: ${order.customerPhone}
+Email: ${order.customerEmail}
+
+⏰ *Processing Time:*
+Your order will be processed within 3-5 business days.
+
+${order.deliveryLink ? `🚚 *Track Your Order:*\n${order.deliveryLink}\n\n` : ''}${order.trackingNumber ? `📋 *Tracking Number:* ${order.trackingNumber}\n\n` : ''}Thank you for choosing MadCreations! 🎨
+
+For any queries, feel free to contact us.
+
+Best regards,
+MadCreations Team`;
+
+    // Format phone number (remove +91 if present and ensure it starts with 91)
+    let phoneNumber = order.customerPhone.replace(/\D/g, ''); // Remove non-digits
+    if (phoneNumber.startsWith('91')) {
+      phoneNumber = phoneNumber;
+    } else if (phoneNumber.startsWith('0')) {
+      phoneNumber = '91' + phoneNumber.substring(1);
+    } else if (phoneNumber.length === 10) {
+      phoneNumber = '91' + phoneNumber;
+    }
+
+    // Create WhatsApp URL
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    
+    // Open WhatsApp
+    window.open(whatsappUrl, '_blank');
   };
 
   const orderStats = {
@@ -451,25 +613,25 @@ const OrderManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {(order.items || []).reduce((sum, item) => sum + ((item as any)?.quantity || 0), 0)} items
+                        {(order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)} items
                       </div>
                       <div className="text-sm text-gray-500">
-                        {(order.items?.[0] as any)?.name || 'Product'}
+                        {order.items?.[0]?.name || 'Product'}
                         {(order.items?.length || 0) > 1 && ` +${(order.items?.length || 0) - 1} more`}
                       </div>
                       {/* Custom Product Indicators */}
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {(order.items || []).some(item => (item as any)?.customizations?.customImages?.length > 0) && (
+                        {(order.items || []).some(item => item.customizations?.customImages?.length > 0) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                             📸 Images
                           </span>
                         )}
-                        {(order.items || []).some(item => (item as any)?.customizations?.customText) && (
+                        {(order.items || []).some(item => item.customizations?.customText) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             ✏️ Text
                           </span>
                         )}
-                        {(order.items || []).some(item => (item as any)?.customizations?.spotifyUrl) && (
+                        {(order.items || []).some(item => item.customizations?.spotifyUrl) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             🎵 Spotify
                           </span>
@@ -515,24 +677,34 @@ const OrderManagement: React.FC = () => {
                           Download
                         </button>
                         
-                        {/* Show download button if order has custom images */}
+                        {/* Show download buttons if order has custom images */}
                         {order.items.some(item => item.customizations?.customImages && item.customizations.customImages.length > 0) && (
-                          <button
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setTimeout(() => {
-                                const customImagesSection = document.querySelector(`[data-order-id="${order.id}"] .custom-images-section`);
-                                if (customImagesSection) {
-                                  customImagesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }
-                              }, 100);
-                            }}
-                            className="flex items-center px-2 py-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded transition-colors text-xs"
-                            title="View and download custom images"
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Images ({order.items.reduce((total, item) => total + (item.customizations?.customImages?.length || 0), 0)})
-                          </button>
+                          <>
+                            <button
+                              onClick={() => downloadAllCustomImages(order)}
+                              className="flex items-center px-2 py-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors text-xs font-semibold"
+                              title="Download all custom images from this order"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              All ({order.items.reduce((total, item) => total + (item.customizations?.customImages?.length || 0), 0)})
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setTimeout(() => {
+                                  const customImagesSection = document.querySelector(`[data-order-id="${order.id}"] .custom-images-section`);
+                                  if (customImagesSection) {
+                                    customImagesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center px-2 py-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded transition-colors text-xs"
+                              title="View and download individual custom images"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </button>
+                          </>
                         )}
                         
                         <button
@@ -542,6 +714,16 @@ const OrderManagement: React.FC = () => {
                         >
                           <Link className="h-5 w-5" />
                         </button>
+                        
+                        <button
+                          onClick={() => sendWhatsAppConfirmation(order)}
+                          className="flex items-center px-2 py-1 text-white bg-green-500 hover:bg-green-600 rounded transition-colors text-xs font-semibold"
+                          title="Send WhatsApp confirmation to customer"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          WhatsApp
+                        </button>
+                        
                         <select
                           value={order.status}
                           onChange={(e) => updateOrderStatus(order.id, e.target.value)}
@@ -582,35 +764,35 @@ const OrderManagement: React.FC = () => {
             <div>
               <h4 className="font-medium text-gray-900 mb-3">Order Items</h4>
               <div className="space-y-3">
-                {selectedOrder.items.map((item, index) => (
+                {selectedOrder.items.map((item: OrderItem, index) => (
                   <div key={index} className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-start space-x-4">
                       <img
-                        src={(item as any)?.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
-                        alt={(item as any)?.name || 'Product'}
+                        src={item.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                        alt={item.name || 'Product'}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
-                        <h5 className="font-medium text-gray-900 mb-1">{(item as any)?.name || 'Product'}</h5>
+                        <h5 className="font-medium text-gray-900 mb-1">{item.name}</h5>
                         <p className="text-sm text-gray-600 mb-2">
-                          Qty: {(item as any)?.quantity || 1} × ₹{(item as any)?.price || 0} = ₹{(((item as any)?.price || 0) * ((item as any)?.quantity || 1)).toLocaleString()}
+                          Qty: {item.quantity} × ₹{item.price} = ₹{(item.price * item.quantity).toLocaleString()}
                         </p>
                         
                         {/* Custom Product Details Section */}
-                        {(item as any)?.customizations && (
+                        {item.customizations && (
                           <div className="mt-3 border-t pt-3">
                             <h6 className="text-sm font-semibold text-purple-700 mb-3 flex items-center">
                               🎨 Custom Product Details
                             </h6>
                             
                             {/* Custom Images */}
-                            {(item as any)?.customizations?.customImages && (item as any)?.customizations?.customImages.length > 0 && (
+                            {item.customizations?.customImages && item.customizations.customImages.length > 0 && (
                               <div className="mb-4 custom-images-section">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                                  📸 Custom Images ({(item as any)?.customizations?.customImages.length})
+                                  📸 Custom Images ({item.customizations.customImages.length})
                                 </h6>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                  {((item as any)?.customizations?.customImages || []).map((imageUrl: string, imgIndex: number) => (
+                                  {(item.customizations.customImages || []).map((imageUrl: string, imgIndex: number) => (
                                     <div key={imgIndex} className="relative group bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
                                       <img
                                         src={imageUrl}
@@ -623,7 +805,7 @@ const OrderManagement: React.FC = () => {
                                       />
                                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all duration-200 flex items-center justify-center">
                                         <button
-                                          onClick={() => downloadCustomImage(imageUrl, `${item.product.name}-custom-${imgIndex + 1}-${selectedOrder.id}.jpg`)}
+                                          onClick={() => downloadCustomImage(imageUrl, `${item.name || 'product'}-custom-${imgIndex + 1}-${selectedOrder.id}.jpg`)}
                                           className="opacity-0 group-hover:opacity-100 bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-all duration-200 transform scale-90 group-hover:scale-100"
                                           title="Download custom image"
                                         >
@@ -637,27 +819,27 @@ const OrderManagement: React.FC = () => {
                                   ))}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2 italic">
-                                  💡 Hover over images to download • Total: {(item as any)?.customizations?.customImages?.length || 0} image(s)
+                                  💡 Hover over images to download • Total: {item.customizations?.customImages?.length || 0} image(s)
                                 </p>
                               </div>
                             )}
                             
                             {/* Custom Text */}
-                            {(item as any)?.customizations?.customText && (
+                            {item.customizations?.customText && (
                               <div className="mb-4">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                                   ✏️ Custom Text
                                 </h6>
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                   <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                                    "{(item as any)?.customizations?.customText}"
+                                    "{item.customizations.customText}"
                                   </p>
                                 </div>
                               </div>
                             )}
                             
                             {/* Spotify URL */}
-                            {(item as any)?.customizations?.spotifyUrl && (
+                            {item.customizations?.spotifyUrl && (
                               <div className="mb-4">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                                   🎵 Spotify Link
@@ -671,12 +853,12 @@ const OrderManagement: React.FC = () => {
                                     </div>
                                     <div className="flex-1">
                                       <a 
-                                        href={(item as any)?.customizations?.spotifyUrl} 
+                                        href={item.customizations.spotifyUrl} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
                                         className="text-sm text-green-700 hover:text-green-800 font-medium underline break-all"
                                       >
-                                        {(item as any)?.customizations?.spotifyUrl}
+                                        {item.customizations.spotifyUrl}
                                       </a>
                                       <p className="text-xs text-gray-600 mt-1">
                                         🎯 QR code will be generated for this Spotify link
@@ -688,7 +870,7 @@ const OrderManagement: React.FC = () => {
                             )}
                             
                             {/* Processing Guidelines for Polaroids */}
-                            {((item as any)?.name || '').toLowerCase().includes('polaroid') && (
+                            {(item.name || '').toLowerCase().includes('polaroid') && (
                               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                 <h6 className="text-sm font-semibold text-yellow-800 mb-2 flex items-center">
                                   🎵 Polaroid Processing Guidelines
