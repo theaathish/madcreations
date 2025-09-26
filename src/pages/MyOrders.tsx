@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, Clock, CheckCircle, Truck, AlertCircle, ExternalLink, Copy, Eye } from 'lucide-react';
 import { ordersService } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
-import type { Order, CartItem } from '../types';
+import type { Order } from '../types';
 
 const MyOrders: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -167,10 +167,10 @@ const MyOrders: React.FC = () => {
                       <span className="font-medium">Order Date:</span> {formatDate(order.createdAt || order.orderDate)}
                     </div>
                     <div>
-                      <span className="font-medium">Items:</span> {order.items.length}
+                      <span className="font-medium">Items:</span> {order.items?.length || 0}
                     </div>
                     <div>
-                      <span className="font-medium">Total:</span> ₹{order.total.toLocaleString()}
+                      <span className="font-medium">Total:</span> ₹{(order.total || 0).toLocaleString()}
                     </div>
                   </div>
 
@@ -230,27 +230,29 @@ const MyOrders: React.FC = () => {
                   </div>
 
                   {/* Order Items Preview */}
-                  <div className="flex items-center space-x-4">
-                    {order.items.slice(0, 3).map((item: CartItem, index: number) => (
-                    <img
-                        key={index}
-                        src={item.product.images?.[0] || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
-                        alt={item.product.name}
-                        className="w-12 h-12 object-cover rounded-lg"
-                      />
-                    ))}
-                    {order.items.length > 3 && (
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-gray-600">
-                        +{order.items.length - 3}
+                  {order.items && order.items.length > 0 && (
+                    <div className="flex items-center space-x-4">
+                      {order.items.slice(0, 3).map((item: any, index: number) => (
+                      <img
+                          key={index}
+                          src={item.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                          alt={item.name || 'Product'}
+                          className="w-12 h-12 object-cover rounded-lg"
+                        />
+                      ))}
+                      {order.items.length > 3 && (
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-gray-600">
+                          +{order.items.length - 3}
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {(order.items[0] as any)?.name || 'Product'}
+                          {order.items.length > 1 && ` and ${order.items.length - 1} more item${order.items.length > 2 ? 's' : ''}`}
+                        </p>
                       </div>
-                    )}
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        {order.items[0].product.name}
-                        {order.items.length > 1 && ` and ${order.items.length - 1} more item${order.items.length > 2 ? 's' : ''}`}
-                      </p>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Expanded Order Details */}
@@ -260,17 +262,17 @@ const MyOrders: React.FC = () => {
                       <div>
                         <h4 className="font-medium text-gray-900 mb-3">Order Items</h4>
                         <div className="space-y-3">
-                          {order.items.map((item: CartItem, index: number) => (
+                          {(order.items || []).map((item: any, index: number) => (
                             <div key={index} className="flex items-center space-x-3 p-3 bg-white rounded-lg">
                             <img
-                                src={item.product.images?.[0] || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
-                                alt={item.product.name}
+                                src={item.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                                alt={item.name || 'Product'}
                                 className="w-16 h-16 object-cover rounded-lg"
                               />
                               <div className="flex-1">
-                                <h5 className="font-medium text-gray-900">{item.product.name}</h5>
-                                <p className="text-sm text-gray-600">Qty: {item.quantity} × ₹{item.product.price}</p>
-                                <p className="text-sm font-medium text-purple-600">₹{item.quantity * item.product.price}</p>
+                                <h5 className="font-medium text-gray-900">{item.name || 'Product'}</h5>
+                                <p className="text-sm text-gray-600">Qty: {item.quantity || 1} × ₹{item.price || 0}</p>
+                                <p className="text-sm font-medium text-purple-600">₹{(item.quantity || 1) * (item.price || 0)}</p>
                               </div>
                             </div>
                           ))}
@@ -282,16 +284,16 @@ const MyOrders: React.FC = () => {
                         <div className="bg-white rounded-lg p-4 space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-600">Subtotal:</span>
-                            <span className="font-medium">₹{order.subtotal.toLocaleString()}</span>
+                            <span className="font-medium">₹{(order.subtotal || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Shipping:</span>
-                            <span className="font-medium">₹{order.shippingCost}</span>
+                            <span className="font-medium">₹{order.shippingCost || 0}</span>
                           </div>
                           <div className="border-t pt-2">
                             <div className="flex justify-between">
                               <span className="font-semibold">Total:</span>
-                              <span className="font-semibold text-purple-600">₹{order.total.toLocaleString()}</span>
+                              <span className="font-semibold text-purple-600">₹{(order.total || 0).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -300,8 +302,8 @@ const MyOrders: React.FC = () => {
                           <h5 className="font-medium text-gray-900 mb-2">Shipping Address</h5>
                           <div className="bg-white rounded-lg p-3">
                             <p className="text-sm text-gray-600">
-                              {order.shippingAddress.address}<br />
-                              {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.pincode}
+                              {order.shippingAddress?.address || 'N/A'}<br />
+                              {order.shippingAddress?.city || 'N/A'}, {order.shippingAddress?.state || 'N/A'} - {order.shippingAddress?.pincode || 'N/A'}
                             </p>
                           </div>
                         </div>

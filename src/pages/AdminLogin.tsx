@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const Login: React.FC = () => {
+const AdminLogin: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,7 +28,8 @@ const Login: React.FC = () => {
 
     try {
       await login(formData.email, formData.password);
-      navigate('/');
+      // The AuthContext will handle admin verification
+      navigate('/admin');
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -36,33 +37,24 @@ const Login: React.FC = () => {
     }
   };
 
-
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
+        <div className="text-center">
           <div className="flex justify-center">
-            <img
-              src="/logo.png"
-              alt="Mad Creations Logo"
-              className="h-16 w-16 object-contain"
-            />
+            <div className="bg-white p-4 rounded-full shadow-lg">
+              <Shield className="h-12 w-12 text-purple-600" />
+            </div>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+            Admin Access
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              to="/signup"
-              className="font-medium text-purple-600 hover:text-purple-500"
-            >
-              create a new account
-            </Link>
+          <p className="mt-2 text-center text-sm text-purple-200">
+            Sign in to access the admin dashboard
           </p>
         </div>
 
-        <div className="bg-white py-8 px-6 shadow rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-6 shadow-xl rounded-lg sm:px-10">
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
               {error}
@@ -72,9 +64,9 @@ const Login: React.FC = () => {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                Admin Email
               </label>
-              <div className="mt-1 relative">
+              <div className="mt-1">
                 <input
                   id="email"
                   name="email"
@@ -83,9 +75,8 @@ const Login: React.FC = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-                  placeholder="Enter your email"
+                  placeholder="Enter admin email"
                 />
-                <Mail className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
               </div>
             </div>
 
@@ -102,7 +93,7 @@ const Login: React.FC = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-                  placeholder="Enter your password"
+                  placeholder="Enter password"
                 />
                 <button
                   type="button"
@@ -114,31 +105,34 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <Link
-                  to="/forgot-password"
-                  className="font-medium text-purple-600 hover:text-purple-500"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-            </div>
-
             <div>
               <button
                 type="submit"
                 disabled={loading}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                <Shield className="h-4 w-4 mr-2" />
+                {loading ? 'Signing in...' : 'Access Admin Panel'}
               </button>
             </div>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500">
+              This is a secure admin area. Unauthorized access is prohibited.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Access Credentials for Development */}
+        <div className="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-4 text-white text-sm">
+          <h3 className="font-semibold mb-2 text-purple-200">🔑 Admin Credentials:</h3>
+          <p className="mb-1"><strong>Email:</strong> admin@madcreations.com</p>
+          <p><strong>Password:</strong> MadCreations@2024</p>
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default AdminLogin;

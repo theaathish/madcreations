@@ -13,7 +13,10 @@ import ProductList from './pages/ProductList';
 import Cart from './pages/Cart';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AdminLogin from './pages/AdminLogin';
 import Profile from './pages/Profile';
+import UserDashboard from './pages/UserDashboard';
+import MyOrdersPage from './pages/MyOrdersPage';
 import ProductDetail from './pages/ProductDetail';
 import Customization from './pages/Customization';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -80,8 +83,19 @@ function App() {
             {/* Auth Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
 
             {/* Protected User Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <UserDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-orders" element={
+              <ProtectedRoute>
+                <MyOrdersPage />
+              </ProtectedRoute>
+            } />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />

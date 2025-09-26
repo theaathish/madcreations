@@ -451,25 +451,25 @@ const OrderManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
+                        {(order.items || []).reduce((sum, item) => sum + ((item as any)?.quantity || 0), 0)} items
                       </div>
                       <div className="text-sm text-gray-500">
-                        {order.items[0].product.name}
-                        {order.items.length > 1 && ` +${order.items.length - 1} more`}
+                        {(order.items?.[0] as any)?.name || 'Product'}
+                        {(order.items?.length || 0) > 1 && ` +${(order.items?.length || 0) - 1} more`}
                       </div>
                       {/* Custom Product Indicators */}
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {order.items.some(item => item.customizations?.customImages?.length > 0) && (
+                        {(order.items || []).some(item => (item as any)?.customizations?.customImages?.length > 0) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                             📸 Images
                           </span>
                         )}
-                        {order.items.some(item => item.customizations?.customText) && (
+                        {(order.items || []).some(item => (item as any)?.customizations?.customText) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             ✏️ Text
                           </span>
                         )}
-                        {order.items.some(item => item.customizations?.spotifyUrl) && (
+                        {(order.items || []).some(item => (item as any)?.customizations?.spotifyUrl) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             🎵 Spotify
                           </span>
@@ -586,31 +586,31 @@ const OrderManagement: React.FC = () => {
                   <div key={index} className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-start space-x-4">
                       <img
-                        src={item.product.images?.[0] || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
-                        alt={item.product.name}
+                        src={(item as any)?.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                        alt={(item as any)?.name || 'Product'}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
-                        <h5 className="font-medium text-gray-900 mb-1">{item.product.name}</h5>
+                        <h5 className="font-medium text-gray-900 mb-1">{(item as any)?.name || 'Product'}</h5>
                         <p className="text-sm text-gray-600 mb-2">
-                          Qty: {item.quantity} × ₹{item.product.price} = ₹{(item.product.price * item.quantity).toLocaleString()}
+                          Qty: {(item as any)?.quantity || 1} × ₹{(item as any)?.price || 0} = ₹{(((item as any)?.price || 0) * ((item as any)?.quantity || 1)).toLocaleString()}
                         </p>
                         
                         {/* Custom Product Details Section */}
-                        {item.customizations && (
+                        {(item as any)?.customizations && (
                           <div className="mt-3 border-t pt-3">
                             <h6 className="text-sm font-semibold text-purple-700 mb-3 flex items-center">
                               🎨 Custom Product Details
                             </h6>
                             
                             {/* Custom Images */}
-                            {item.customizations.customImages && item.customizations.customImages.length > 0 && (
+                            {(item as any)?.customizations?.customImages && (item as any)?.customizations?.customImages.length > 0 && (
                               <div className="mb-4 custom-images-section">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                                  📸 Custom Images ({item.customizations.customImages.length})
+                                  📸 Custom Images ({(item as any)?.customizations?.customImages.length})
                                 </h6>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                  {item.customizations.customImages.map((imageUrl: string, imgIndex: number) => (
+                                  {((item as any)?.customizations?.customImages || []).map((imageUrl: string, imgIndex: number) => (
                                     <div key={imgIndex} className="relative group bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
                                       <img
                                         src={imageUrl}
@@ -637,27 +637,27 @@ const OrderManagement: React.FC = () => {
                                   ))}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2 italic">
-                                  💡 Hover over images to download • Total: {item.customizations.customImages.length} image(s)
+                                  💡 Hover over images to download • Total: {(item as any)?.customizations?.customImages?.length || 0} image(s)
                                 </p>
                               </div>
                             )}
                             
                             {/* Custom Text */}
-                            {item.customizations.customText && (
+                            {(item as any)?.customizations?.customText && (
                               <div className="mb-4">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                                   ✏️ Custom Text
                                 </h6>
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                   <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                                    "{item.customizations.customText}"
+                                    "{(item as any)?.customizations?.customText}"
                                   </p>
                                 </div>
                               </div>
                             )}
                             
                             {/* Spotify URL */}
-                            {item.customizations.spotifyUrl && (
+                            {(item as any)?.customizations?.spotifyUrl && (
                               <div className="mb-4">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                                   🎵 Spotify Link
@@ -671,12 +671,12 @@ const OrderManagement: React.FC = () => {
                                     </div>
                                     <div className="flex-1">
                                       <a 
-                                        href={item.customizations.spotifyUrl} 
+                                        href={(item as any)?.customizations?.spotifyUrl} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
                                         className="text-sm text-green-700 hover:text-green-800 font-medium underline break-all"
                                       >
-                                        {item.customizations.spotifyUrl}
+                                        {(item as any)?.customizations?.spotifyUrl}
                                       </a>
                                       <p className="text-xs text-gray-600 mt-1">
                                         🎯 QR code will be generated for this Spotify link
@@ -688,7 +688,7 @@ const OrderManagement: React.FC = () => {
                             )}
                             
                             {/* Processing Guidelines for Polaroids */}
-                            {item.product.name.toLowerCase().includes('polaroid') && (
+                            {((item as any)?.name || '').toLowerCase().includes('polaroid') && (
                               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                 <h6 className="text-sm font-semibold text-yellow-800 mb-2 flex items-center">
                                   🎵 Polaroid Processing Guidelines

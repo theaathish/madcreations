@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, Menu, X, LogOut } from 'lucide-react';
+import { ShoppingCart, Search, Menu, X } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,8 +8,13 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { state } = useCart();
-  const { user, logout } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Get the display name with priority: userProfile > user > fallback
+  const getDisplayName = () => {
+    return userProfile?.displayName || user?.displayName || 'User';
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,21 +94,54 @@ const Header: React.FC = () => {
 
             {user ? (
               <div className="flex items-center space-x-4">
-                <Link to="/profile" className="flex items-center space-x-2 text-gray-700 hover:text-purple-600 transition-colors">
-                  <img
-                    src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=6366f1&color=fff&size=32`}
-                    alt="Profile"
-                    className="h-8 w-8 rounded-full"
-                  />
-                  <span className="hidden sm:block text-sm font-medium">{user.displayName || 'User'}</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 text-gray-700 hover:text-red-600 transition-colors"
-                  title="Logout"
+                {/* My Orders Link */}
+                <Link 
+                  to="/my-orders" 
+                  className="hidden sm:block text-gray-700 hover:text-purple-600 font-medium transition-colors"
                 >
-                  <LogOut className="h-6 w-6" />
-                </button>
+                  My Orders
+                </Link>
+                
+                {/* User Profile Dropdown */}
+                <div className="relative group">
+                  <button className="flex items-center space-x-2 text-gray-700 hover:text-purple-600 transition-colors">
+                    <img
+                      src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(getDisplayName())}&background=6366f1&color=fff&size=32`}
+                      alt="Profile"
+                      className="h-8 w-8 rounded-full"
+                    />
+                    <span className="hidden sm:block text-sm font-medium">{getDisplayName()}</span>
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <Link
+                      to="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      to="/my-orders"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      My Orders
+                    </Link>
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      Profile Settings
+                    </Link>
+                    <div className="border-t border-gray-100"></div>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex items-center space-x-2">

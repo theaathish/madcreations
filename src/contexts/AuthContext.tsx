@@ -59,8 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user) {
         await loadUserProfile(user.uid);
         // Check if user is admin
-        const adminEmails = ['kartikbaskaran2@gmail.com', 'admin@madcreations.com'];
-        setIsAdmin(adminEmails.includes(user.email || ''));
+        await checkAdminStatus(user);
       } else {
         setUserProfile(null);
         setIsAdmin(false);
@@ -70,6 +69,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return unsubscribe;
   }, []);
+
+  const checkAdminStatus = async (user: User) => {
+    try {
+      // Check by email first (fallback method)
+      const adminEmails = ['kartikbaskaran2@gmail.com', 'admin@madcreations.com'];
+      const isAdminByEmail = adminEmails.includes(user.email || '');
+      
+      // Check if user exists in admins collection
+      const adminDocRef = doc(db, 'admins', user.uid);
+      const adminDocSnap = await getDoc(adminDocRef);
+      const isAdminByRecord = adminDocSnap.exists();
+      
+      // Check if user profile has admin role
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      const isAdminByRole = userDocSnap.exists() && userDocSnap.data()?.isAdmin === true;
+      
+      const adminStatus = isAdminByEmail || isAdminByRecord || isAdminByRole;
+      setIsAdmin(adminStatus);
+      
+      console.log('🔐 Admin status check:', {
+        email: user.email,
+        isAdminByEmail,
+        isAdminByRecord,
+        isAdminByRole,
+        finalStatus: adminStatus
+      });
+      
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+    }
+  };
 
   const loadUserProfile = async (uid: string) => {
     try {

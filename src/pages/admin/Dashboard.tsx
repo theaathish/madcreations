@@ -3,7 +3,6 @@ import {
   TrendingUp,
   Package,
   ShoppingCart,
-  Users,
   IndianRupee,
   Eye
 } from 'lucide-react';
@@ -89,28 +88,24 @@ const Dashboard: React.FC = () => {
     {
       name: 'Total Revenue',
       value: `₹${totalRevenue.toLocaleString()}`,
-      change: '+12.5%',
       changeType: 'positive',
       icon: IndianRupee,
     },
     {
       name: 'Total Orders',
       value: totalOrders.toString(),
-      change: '+8.2%',
       changeType: 'positive',
       icon: ShoppingCart,
     },
     {
       name: 'Total Products',
       value: totalProducts.toString(),
-      change: '+3.1%',
       changeType: 'positive',
       icon: Package,
     },
     {
       name: 'Average Order',
       value: `₹${Math.round(avgOrderValue).toLocaleString()}`,
-      change: '+4.7%',
       changeType: 'positive',
       icon: TrendingUp,
     },
@@ -261,11 +256,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-sm font-medium text-gray-600">{stat.name}</p>
                 <div className="flex items-center">
                   <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <p className={`ml-2 text-sm font-medium ${
-                    stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {stat.change}
-                  </p>
+
                 </div>
               </div>
             </div>
@@ -339,37 +330,6 @@ const Dashboard: React.FC = () => {
               ))}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-            <div className="text-center">
-              <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700">Add Product</p>
-            </div>
-          </button>
-          <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-            <div className="text-center">
-              <ShoppingCart className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700">View Orders</p>
-            </div>
-          </button>
-          <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-            <div className="text-center">
-              <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700">Manage Users</p>
-            </div>
-          </button>
-          <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-            <div className="text-center">
-              <TrendingUp className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700">View Analytics</p>
-            </div>
-          </button>
         </div>
       </div>
     </div>

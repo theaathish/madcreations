@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, ShoppingCart } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { Product } from '../types';
 import { useCart } from '../contexts/CartContext';
 
@@ -51,7 +51,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   };
 
   return (
-    <div className="group cursor-pointer h-full">
+    <div 
+      className="group cursor-pointer h-full"
+      onClick={() => window.location.href = `/product/${product.id}`}
+    >
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col">
         <div className="relative overflow-hidden">
           <img
@@ -72,19 +75,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             }}
           />
           
-          {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col space-y-2">
-            {product.originalPrice && (
-              <div className="bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
-                SALE
-              </div>
-            )}
-            {product.featured && (
-              <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
-                ⭐ FEATURED
-              </div>
-            )}
-          </div>
           
           {/* Quick Add to Cart - Hidden by default, shows on hover */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
@@ -103,27 +93,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
         
         <div className="p-4 flex-1 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-purple-600 transition-colors">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-purple-600 transition-colors">
             {product.name}
           </h3>
-          
-          <div className="flex items-center mb-2">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-4 w-4 transition-colors ${
-                    i < Math.floor(product.ratings)
-                      ? 'text-yellow-400 fill-current'
-                      : 'text-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-sm text-gray-600 ml-2">
-              ({product.reviewCount || 0})
-            </span>
-          </div>
 
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
@@ -148,27 +120,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               {product.inStock ? '✓ In Stock' : '✗ Out of Stock'}
             </span>
             
-            <div className="flex space-x-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = `/product/${product.id}`;
-                }}
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium hover:underline"
-              >
-                View Details
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddToCart(e);
-                }}
-                disabled={!product.inStock}
-                className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                <ShoppingCart className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToCart(e);
+              }}
+              disabled={!product.inStock}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span>Add to Cart</span>
+            </button>
           </div>
         </div>
       </div>
