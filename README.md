@@ -160,19 +160,31 @@ src/
 - File size validation: <5MB
 - Batch processing support
 
-## 🔧 Firebase Configuration
+## 🔧 Environment Setup
 
-The application uses the following Firebase services:
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
 
-```javascript
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "your-app-id"
-};
+2. Update the `.env` file with your Firebase project credentials:
+   - Get these values from [Firebase Console](https://console.firebase.google.com/) > Project Settings > General > Your apps
+   - Fill in all required environment variables
+
+### Required Environment Variables
+
+```bash
+# Firebase Configuration
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+
+# Application Settings
+VITE_SITE_URL=https://your-domain.com
+VITE_ENV=development
 ```
 
 ### Security Rules
