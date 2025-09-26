@@ -1,0 +1,14 @@
+[
+  {
+    "origin": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers"],
+    "maxAgeSeconds": 3600
+  },
+  {
+    "origin": ["https://madcreations-229e8.web.app", "https://madcreations-229e8.firebaseapp.com"],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers"],
+    "maxAgeSeconds": 3600
+  }
+]

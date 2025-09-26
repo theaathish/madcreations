@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Products collection - allow read for all, write for authenticated users
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // Orders collection - allow read/write for authenticated users
+    match /orders/{orderId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Allow localhost during development
+    match /{document=**} {
+      allow read, write: if request.auth != null ||
+                           request.headers.origin.matches('http://localhost:.*') ||
+                           request.headers.origin.matches('https://localhost:.*') ||
+                           request.headers.origin.matches('http://127.0.0.1:.*') ||
+                           request.headers.origin.matches('https://127.0.0.1:.*');
+    }
+  }
+}
