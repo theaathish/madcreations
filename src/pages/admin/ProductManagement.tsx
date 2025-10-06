@@ -13,6 +13,22 @@ const ProductManagement: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
+  // Predefined options
+  const sizeOptions = ['A4', '12x9', 'A3'];
+  const themeOptions = [
+    'Movies',
+    'Series',
+    'Anime & Manga',
+    'Sports',
+    'Cars',
+    'Music',
+    'Games',
+    'Devotional',
+    'Motivational',
+    'Gym',
+    'Super Heroes'
+  ];
+
   // Form state for adding products
   const [formData, setFormData] = useState({
     name: '',
@@ -21,8 +37,8 @@ const ProductManagement: React.FC = () => {
     originalPrice: '',
     category: 'poster',
     subcategory: '',
-    size: '',
-    theme: '',
+    size: sizeOptions[0], // Set default to first size
+    theme: themeOptions[0], // Set default to first theme
     inStock: true,
     featured: false,
     hidden: false
@@ -153,27 +169,13 @@ const ProductManagement: React.FC = () => {
         try {
           const base64String = reader.result as string;
           console.log('Image converted to base64, size:', (base64String.length / 1024 / 1024).toFixed(2), 'MB');
-          console.log('Base64 starts with:', base64String.substring(0, 50));
 
-          // Validate base64 format and size
+          // Basic format validation (images are already pre-validated for size)
           if (!base64String.startsWith('data:image/')) {
             throw new Error('Invalid base64 format');
           }
 
-          // Check if image is too large (base64 size limit for Firestore)
-          const maxBase64Size = 900000; // ~900KB base64 = ~600KB original
-          if (base64String.length > maxBase64Size) {
-            alert(`Image "${file.name}" is too large (${(base64String.length / 1024 / 1024).toFixed(2)}MB). Please choose a smaller image under 600KB.`);
-            reject(new Error('Image too large'));
-            return;
-          }
-
-          // Warn if image is quite large
-          if (base64String.length > 700000) { // ~700KB base64 = ~500KB original
-            alert(`Warning: Image "${file.name}" is quite large (${(base64String.length / 1024 / 1024).toFixed(2)}MB). Consider using a smaller image.`);
-          }
-
-          // Upload to tree structure
+          // Upload to tree structure (size already validated in pre-validation)
           const imageId = await imageService.uploadProductImage(productId, base64String, imageIndex);
           console.log('Image uploaded to tree structure with ID:', imageId);
 
@@ -217,29 +219,64 @@ const ProductManagement: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      // PRE-VALIDATE ALL IMAGES BEFORE CREATING PRODUCT
+      if (selectedImages.length > 0) {
+        console.log('Pre-validating all images before creating product...');
+        
+        for (let i = 0; i < selectedImages.length; i++) {
+          const file = selectedImages[i];
+          
+          // Validate file size
+          if (file.size > 2000000) { // 2MB limit
+            alert(`Image "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Please choose images smaller than 2MB.`);
+            setIsSubmitting(false);
+            return;
+          }
+
+          // Pre-validate base64 size
+          const base64Result = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Failed to read image'));
+            reader.readAsDataURL(file);
+          });
+
+          const maxBase64Size = 900000; // ~900KB base64 = ~600KB original
+          if (base64Result.length > maxBase64Size) {
+            alert(`Image "${file.name}" is too large after conversion (${(base64Result.length / 1024 / 1024).toFixed(2)}MB). Please choose a smaller image under 600KB.`);
+            setIsSubmitting(false);
+            return;
+          }
+
+          console.log(`✅ Image ${i + 1}/${selectedImages.length} validated: ${file.name}`);
+        }
+        
+        console.log('✅ All images pre-validated successfully');
+      }
+
       // Create product object (without images initially)
-      const newProduct: Omit<Product, 'id'> = {
+      const newProduct: any = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
         images: ['https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'], // Default image
-        category: formData.category as 'poster' | 'polaroid' | 'bundle' | 'customizable',
-        subcategory: formData.subcategory,
-        size: formData.size,
-        theme: formData.theme,
+        category: formData.category as 'poster' | 'polaroid' | 'bundle' | 'customizable' | 'split_poster',
+        subcategory: formData.subcategory || undefined,
+        size: formData.size || undefined,
+        theme: formData.theme || undefined,
         inStock: formData.inStock,
         featured: formData.featured,
-        hidden: formData.hidden,
+        hidden: formData.hidden || undefined,
         ratings: 4.5, // Default rating
         reviewCount: 0 // Default review count
       };
 
-      // Save to Firebase to get product ID
+      // Save to Firebase to get product ID (now safe because images are pre-validated)
       const productId = await productsService.createProduct(newProduct);
       console.log('Product created with ID:', productId);
 
-      // Upload images to tree structure if any
+      // Upload images to tree structure if any (should not fail now)
       if (selectedImages.length > 0) {
         const uploadedImageIds: string[] = [];
 
@@ -251,11 +288,18 @@ const ProductManagement: React.FC = () => {
             console.log(`Uploaded image ${i + 1}/${selectedImages.length}:`, imageId);
           } catch (error) {
             console.error('Error uploading image:', error);
-            alert(`Failed to upload image "${selectedImages[i].name}". Please try again.`);
-            // Clean up any uploaded images if there was an error
-            if (uploadedImageIds.length > 0) {
+            alert(`Failed to upload image "${selectedImages[i].name}". Cleaning up...`);
+            
+            // Clean up the created product and any uploaded images
+            try {
+              await productsService.deleteProduct(productId);
               await imageService.deleteAllProductImages(productId);
+              console.log('Cleaned up product and images after upload failure');
+            } catch (cleanupError) {
+              console.error('Error cleaning up after failed upload:', cleanupError);
             }
+            
+            setIsSubmitting(false);
             return;
           }
         }
@@ -300,12 +344,12 @@ const ProductManagement: React.FC = () => {
       price: product.price.toString(),
       originalPrice: product.originalPrice?.toString() || '',
       category: product.category,
-      subcategory: product.subcategory || '',
-      size: product.size || '',
-      theme: product.theme || '',
+      subcategory: (product as any).subcategory || '',
+      size: (product as any).size || '',
+      theme: (product as any).theme || '',
       inStock: product.inStock,
-      featured: product.featured,
-      hidden: product.hidden || false
+      featured: product.featured || false,
+      hidden: (product as any).hidden || false
     });
     setSelectedImages([]);
 
@@ -333,8 +377,41 @@ const ProductManagement: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Upload new images to tree structure if any
+      // PRE-VALIDATE ALL NEW IMAGES BEFORE UPDATING PRODUCT
       if (selectedImages.length > 0) {
+        console.log('Pre-validating all new images before updating product...');
+        
+        for (let i = 0; i < selectedImages.length; i++) {
+          const file = selectedImages[i];
+          
+          // Validate file size
+          if (file.size > 2000000) { // 2MB limit
+            alert(`Image "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Please choose images smaller than 2MB.`);
+            setIsSubmitting(false);
+            return;
+          }
+
+          // Pre-validate base64 size
+          const base64Result = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Failed to read image'));
+            reader.readAsDataURL(file);
+          });
+
+          const maxBase64Size = 900000; // ~900KB base64 = ~600KB original
+          if (base64Result.length > maxBase64Size) {
+            alert(`Image "${file.name}" is too large after conversion (${(base64Result.length / 1024 / 1024).toFixed(2)}MB). Please choose a smaller image under 600KB.`);
+            setIsSubmitting(false);
+            return;
+          }
+
+          console.log(`✅ New image ${i + 1}/${selectedImages.length} validated: ${file.name}`);
+        }
+        
+        console.log('✅ All new images pre-validated successfully');
+
+        // Upload new images to tree structure (should not fail now)
         for (let i = 0; i < selectedImages.length; i++) {
           try {
             const imageFile = selectedImages[i];
@@ -342,25 +419,26 @@ const ProductManagement: React.FC = () => {
             console.log(`Uploaded additional image ${i + 1}/${selectedImages.length} for product:`, editingProduct.id);
           } catch (error) {
             console.error('Error uploading image:', error);
-            alert(`Failed to upload image "${selectedImages[i].name}". Please try again.`);
+            alert(`Failed to upload image "${selectedImages[i].name}". Product update cancelled.`);
+            setIsSubmitting(false);
             return;
           }
         }
       }
 
       // Update product object (without images - they stay in tree structure)
-      const updatedProduct: Partial<Product> = {
+      const updatedProduct: any = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
-        category: formData.category as 'poster' | 'polaroid' | 'bundle' | 'customizable',
-        subcategory: formData.subcategory,
-        size: formData.size,
-        theme: formData.theme,
+        category: formData.category as 'poster' | 'polaroid' | 'bundle' | 'customizable' | 'split_poster',
+        subcategory: formData.subcategory || undefined,
+        size: formData.size || undefined,
+        theme: formData.theme || undefined,
         inStock: formData.inStock,
         featured: formData.featured,
-        hidden: formData.hidden
+        hidden: formData.hidden || undefined
       };
 
       // Update in Firebase
@@ -620,13 +698,13 @@ const ProductManagement: React.FC = () => {
                       />
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">{product.subcategory}</div>
+                        <div className="text-sm text-gray-500">{(product as any).subcategory || 'No subcategory'}</div>
                         {product.featured && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 mt-1">
                             Featured
                           </span>
                         )}
-                        {product.hidden && (
+                        {(product as any).hidden && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 mt-1">
                             Hidden
                           </span>
@@ -651,8 +729,8 @@ const ProductManagement: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{product.ratings}/5</div>
-                    <div className="text-sm text-gray-500">({product.reviewCount} reviews)</div>
+                    <div className="text-sm text-gray-900">{(product as any).ratings || 0}/5</div>
+                    <div className="text-sm text-gray-500">({(product as any).reviewCount || 0} reviews)</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
@@ -667,16 +745,16 @@ const ProductManagement: React.FC = () => {
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm(`Are you sure you want to ${product.hidden ? 'unhide' : 'hide'} this product?`)) {
-                            productsService.updateProduct(product.id, { hidden: !product.hidden })
+                          if (window.confirm(`Are you sure you want to ${(product as any).hidden ? 'unhide' : 'hide'} this product?`)) {
+                            productsService.updateProduct(product.id, { hidden: !(product as any).hidden } as any)
                               .then(() => loadProducts())
                               .catch(error => console.error('Error updating product visibility:', error));
                           }
                         }}
-                        className={`${product.hidden ? 'text-green-600 hover:text-green-700' : 'text-orange-600 hover:text-orange-700'}`}
-                        title={product.hidden ? 'Unhide product' : 'Hide product'}
+                        className={`${(product as any).hidden ? 'text-green-600 hover:text-green-700' : 'text-orange-600 hover:text-orange-700'}`}
+                        title={(product as any).hidden ? 'Unhide product' : 'Hide product'}
                       >
-                        {product.hidden ? '👁️' : '🙈'}
+                        {(product as any).hidden ? '👁️' : '🙈'}
                       </button>
                       <button
                         onClick={() => handleDeleteProduct(product.id)}
@@ -773,6 +851,7 @@ const ProductManagement: React.FC = () => {
                       <option value="polaroid">Polaroid</option>
                       <option value="bundle">Bundle</option>
                       <option value="customizable">Customizable</option>
+                      <option value="split_poster">Split Poster</option>
                     </select>
                   </div>
                 </div>
@@ -826,25 +905,35 @@ const ProductManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Size
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.size}
                       onChange={(e) => handleInputChange('size', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="e.g., A4, A3, 12x18"
-                    />
+                      required
+                    >
+                      {sizeOptions.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Theme
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.theme}
                       onChange={(e) => handleInputChange('theme', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="e.g., Anime, Movies, Nature"
-                    />
+                      required
+                    >
+                      {themeOptions.map((theme) => (
+                        <option key={theme} value={theme}>
+                          {theme}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -997,6 +1086,7 @@ const ProductManagement: React.FC = () => {
                       <option value="polaroid">Polaroid</option>
                       <option value="bundle">Bundle</option>
                       <option value="customizable">Customizable</option>
+                      <option value="split_poster">Split Poster</option>
                     </select>
                   </div>
                 </div>

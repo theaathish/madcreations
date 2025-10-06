@@ -22,7 +22,11 @@ const ProductDetail: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [selectedSize, setSelectedSize] = useState('');
   const { dispatch } = useCart();
+
+  // Available size options
+  const sizeOptions = ['A4', '12x9', 'A3'];
 
   useEffect(() => {
     if (id) {
@@ -120,12 +124,18 @@ const ProductDetail: React.FC = () => {
   };
 
   const handleAddToCart = () => {
-    if (product) {
+    if (product && selectedSize) {
       dispatch({
         type: 'ADD_ITEM',
-        payload: { product, quantity }
+        payload: { 
+          product, 
+          quantity,
+          customizations: { size: selectedSize }
+        }
       });
-      alert(`Added ${quantity} ${product.name}(s) to cart!`);
+      alert(`Added ${quantity} ${product.name}(s) (${selectedSize}) to cart!`);
+    } else if (!selectedSize) {
+      alert('Please select a size before adding to cart!');
     }
   };
 
@@ -227,19 +237,19 @@ const ProductDetail: React.FC = () => {
         </nav>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Back Button */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <Link
             to="/"
-            className="inline-flex items-center text-gray-600 hover:text-purple-600 transition-colors"
+            className="inline-flex items-center text-gray-600 hover:text-purple-600 transition-colors text-sm sm:text-base"
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             Back to Products
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
@@ -333,24 +343,24 @@ const ProductDetail: React.FC = () => {
           </div>
 
           {/* Product Information */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Product Title and Price */}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
-              <div className="flex items-center space-x-4 mb-4">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
                 <div className="flex items-center space-x-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
                       className={`h-5 w-5 ${
-                        i < Math.floor(product.ratings)
+                        i < Math.floor((product as any).ratings || 0)
                           ? 'text-yellow-400 fill-current'
                           : 'text-gray-300'
                       }`}
                     />
                   ))}
                   <span className="text-sm text-gray-600 ml-2">
-                    {product.ratings}/5 ({product.reviewCount} reviews)
+                    {(product as any).ratings || 0}/5 ({(product as any).reviewCount || 0} reviews)
                   </span>
                 </div>
               </div>
@@ -375,22 +385,22 @@ const ProductDetail: React.FC = () => {
                   <span className="text-gray-600">Category:</span>
                   <span className="font-medium capitalize">{product.category}</span>
                 </div>
-                {product.subcategory && (
+                {(product as any).subcategory && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Subcategory:</span>
-                    <span className="font-medium">{product.subcategory}</span>
+                    <span className="font-medium">{(product as any).subcategory}</span>
                   </div>
                 )}
-                {product.size && (
+                {(product as any).size && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Size:</span>
-                    <span className="font-medium">{product.size}</span>
+                    <span className="font-medium">{(product as any).size}</span>
                   </div>
                 )}
-                {product.theme && (
+                {(product as any).theme && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Theme:</span>
-                    <span className="font-medium">{product.theme}</span>
+                    <span className="font-medium">{(product as any).theme}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -429,6 +439,29 @@ const ProductDetail: React.FC = () => {
 
             {/* Add to Cart Section */}
             <div className="bg-white rounded-lg p-6 shadow-sm">
+              {/* Size Selection */}
+              <div className="mb-4 sm:mb-6">
+                <span className="text-base sm:text-lg font-semibold text-gray-900 block mb-3">Select Size:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  {sizeOptions.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`p-3 border-2 rounded-lg text-center font-medium transition-colors ${
+                        selectedSize === size
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                {!selectedSize && (
+                  <p className="text-sm text-red-600 mt-2">Please select a size</p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between mb-4">
                 <span className="text-lg font-semibold text-gray-900">Quantity:</span>
                 <div className="flex items-center space-x-3">
@@ -450,10 +483,10 @@ const ProductDetail: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex space-x-4">
+              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
                 <button
                   onClick={handleAddToCart}
-                  disabled={!product.inStock}
+                  disabled={!product.inStock || !selectedSize}
                   className="flex-1 bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   <ShoppingCart className="h-5 w-5" />

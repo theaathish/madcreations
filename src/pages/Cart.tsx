@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Truck } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Truck, Lock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { OrderItem } from '../types';
@@ -13,7 +13,9 @@ const Cart: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Calculate cart totals
+  // Calculate cart totals and check minimum order quantity
+  const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0);
+  const meetsMinimumOrder = totalItems >= 10;
   const subtotal = state.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const shippingCost = shippingMethod === 'express' ? 99 : 0;
   const total = subtotal + shippingCost;
@@ -297,18 +299,37 @@ const Cart: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleCheckout}
-                disabled={isProcessing || state.items.length === 0}
-                className={`w-full py-3 px-4 rounded-md text-white font-medium flex items-center justify-center ${
-                  isProcessing || state.items.length === 0
-                    ? 'bg-indigo-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700'
-                } transition-colors`}
-              >
-                <CreditCard className="h-5 w-5 mr-2" />
-                {isProcessing ? 'Processing...' : 'Proceed to Checkout'}
-              </button>
+              {!meetsMinimumOrder ? (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 rounded-md z-10">
+                    <div className="text-center p-4">
+                      <Lock className="h-6 w-6 mx-auto text-gray-500 mb-2" />
+                      <p className="text-sm text-gray-700">Add {10 - totalItems} more items to unlock checkout</p>
+                      <p className="text-xs text-gray-500 mt-1">Minimum order of 10 items required</p>
+                    </div>
+                  </div>
+                  <button
+                    disabled
+                    className="w-full py-3 px-4 rounded-md text-white font-medium flex items-center justify-center bg-indigo-400 cursor-not-allowed relative opacity-50"
+                  >
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Proceed to Checkout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCheckout}
+                  disabled={isProcessing}
+                  className={`w-full py-3 px-4 rounded-md text-white font-medium flex items-center justify-center ${
+                    isProcessing
+                      ? 'bg-indigo-400 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                  } transition-colors`}
+                >
+                  <CreditCard className="h-5 w-5 mr-2" />
+                  {isProcessing ? 'Processing...' : 'Proceed to Checkout'}
+                </button>
+              )}
 
               <p className="mt-4 text-center text-sm text-gray-500">
                 or{' '}

@@ -7,7 +7,8 @@ import {
   Users,
   Menu,
   X,
-  LogOut
+  LogOut,
+  ListChecks
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -37,6 +38,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { name: 'Products', href: '/admin/products', icon: Package },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+    { name: 'Bulk Orders', href: '/admin/bulk-orders', icon: ListChecks },
     { name: 'Customers', href: '/admin/customers', icon: Users },
   ];
 

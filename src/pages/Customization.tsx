@@ -5,6 +5,8 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
+import { bulkOrderService } from '../services/bulkOrderService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Product Types
 type ProductType = 'poster' | 'polaroid' | null;
@@ -33,40 +35,161 @@ interface PolaroidConfig {
 }
 
 const Customization: React.FC = () => {
-  const { dispatch } = useCart();
   const [searchParams] = useSearchParams();
+  const { dispatch } = useCart();
+  const { user } = useAuth();
   
   // Get product type from URL params
   const productTypeParam = searchParams.get('type') as ProductType;
   const [selectedProductType, setSelectedProductType] = useState<ProductType>(productTypeParam);
   
+  // Bulk order enquiry state
+  const [showBulkEnquiry, setShowBulkEnquiry] = useState(false);
+  const [enquiryStatus, setEnquiryStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [enquiryForm, setEnquiryForm] = useState(() => ({
+    name: user?.displayName || '',
+    email: user?.email || '',
+    phone: '',
+    quantity: '',
+    message: '',
+    productType: productTypeParam || 'other' as const,
+  }));
+
+  // WhatsApp order state
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [selectedFrame, setSelectedFrame] = useState<{
+    id: string;
+    name: string;
+    whatsappAction: () => void;
+  } | null>(null);
+
+  const handleEnquiryChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEnquiryForm(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleEnquirySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnquiryStatus('submitting');
+    
+    try {
+      await bulkOrderService.createEnquiry({
+        ...enquiryForm,
+        productType: selectedProductType || 'other',
+      });
+      
+      setEnquiryStatus('success');
+      setEnquiryForm({
+        name: user?.displayName || '',
+        email: user?.email || '',
+        phone: '',
+        quantity: '',
+        message: '',
+        productType: selectedProductType || 'other' as const,
+      });
+      
+      // Hide success message after 5 seconds
+      setTimeout(() => {
+        setEnquiryStatus('idle');
+        setShowBulkEnquiry(false);
+      }, 5000);
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      setEnquiryStatus('error');
+    }
+  };
   // Poster Configuration
   const [posterConfig, setPosterConfig] = useState<PosterConfig>({
     image: null,
-    size: 'A4',
+    size: 'A4', // Add default size
     quantity: 1
   });
   
   // Polaroid Configuration
   const [polaroidConfig, setPolaroidConfig] = useState<PolaroidConfig>({
-    items: [{ id: '1', image: null, text: '', spotifyLink: '', size: 'normal', frameType: 'normal' }]
+    items: [
+      {
+        id: '1',
+        image: null,
+        text: '',
+        spotifyLink: '',
+        size: '3x4',
+        frameType: 'classic'
+      }
+    ]
   });
-  
+
   // Available sizes for polaroids
   const polaroidSizes = [
-    { id: 'large', name: 'Large (3.3×2.2 inch)', price: 200 },
-    { id: 'normal', name: 'Normal (2×2.5 inches)', price: 150 },
-    { id: 'wallet', name: 'Wallet Card (2.5×3 inches)', price: 170 }
+    { id: 'large', name: 'Large (3.3×2.2 inch)', price: 20 },
+    { id: 'normal', name: 'Normal (2×2.5 inches)', price: 15 },
+    { id: 'wallet', name: 'Wallet Card (2.5×3 inches)', price: 17 }
   ];
   
+  // Function to handle WhatsApp redirection
+  const handleWhatsAppOrder = (frameType: string) => {
+    const phoneNumber = '918667009306';
+    const message = `Hi, I'm interested in ordering a ${frameType}. Can you help me with this?`;
+    window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
+    setShowWhatsAppModal(false);
+  };
+
+  // Handle frame selection
+  const handleFrameSelect = (frame: any, itemId: string) => {
+    if (frame.whatsappAction) {
+      setSelectedFrame({
+        id: frame.id,
+        name: frame.name,
+        whatsappAction: frame.whatsappAction
+      });
+      setShowWhatsAppModal(true);
+    } else if (updatePolaroidItem) {
+      updatePolaroidItem(itemId, { frameType: frame.id });
+    }
+  };
+
   // Available frame types
   const frameTypes = [
-    { id: 'normal', name: 'Normal Frame', description: 'Classic polaroid style' },
-    { id: 'spotify', name: 'Spotify Frame', description: 'With Spotify QR code' },
-    { id: 'insta', name: 'Instagram Frame', description: 'Instagram-style layout' },
-    { id: 'full', name: 'Full Frame', description: 'Edge-to-edge photo' },
-    { id: 'filmstrip', name: 'Film Strip (4 pics)', description: '4 photos in film strip style' },
-    { id: 'musicplayer', name: 'Music Player', description: 'Custom song name display' }
+    { 
+      id: 'normal', 
+      name: 'Normal Frame', 
+      description: 'Classic polaroid style'
+    },
+    { 
+      id: 'spotify', 
+      name: 'Spotify Frame', 
+      description: 'With Spotify QR code'
+    },
+    { 
+      id: 'insta', 
+      name: 'Instagram Frame', 
+      description: 'Instagram-style layout'
+    },
+    { 
+      id: 'full', 
+      name: 'Full Frame', 
+      description: 'Edge-to-edge photo'
+    },
+    { 
+      id: 'filmstrip', 
+      name: 'Film Strip (4 pics) - ₹45', 
+      description: '4 photos in film strip style',
+      whatsappAction: () => handleWhatsAppOrder('Film Strip Polaroid - ₹45')
+    },
+    { 
+      id: 'musicplayer', 
+      name: 'Music Player', 
+      description: 'Custom song name display'
+    },
+    { 
+      id: 'ar', 
+      name: 'AR Polaroid - ₹50', 
+      description: 'Augmented Reality experience',
+      whatsappAction: () => handleWhatsAppOrder('AR Polaroid - ₹50')
+    }
   ];
   
   // Available sizes for posters
@@ -189,6 +312,35 @@ const Customization: React.FC = () => {
       alert('Polaroids added to cart!');
     }
   };
+
+  // WhatsApp Order Modal
+  const WhatsAppOrderModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Order {selectedFrame?.name}</h3>
+        <p className="text-gray-600 mb-6">
+          Would you like to proceed with your order for <span className="font-medium">{selectedFrame?.name}</span> via WhatsApp?
+        </p>
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={() => setShowWhatsAppModal(false)}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Continue Customizing
+          </button>
+          <button
+            onClick={() => selectedFrame?.whatsappAction()}
+            className="px-4 py-2 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-600 flex items-center"
+          >
+            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.498 14.382l-.002-.001h-.016c-1.36 0-1.617-.639-2.326-2.227-.224-.5-.4-.86-.586-1.083-.226-.273-.35-.358-.541-.372-.134-.01-.257-.009-.372-.01s-.343 0-.53.077c-.416.171-.72.59-.925 1.247-.048.154-.086.333-.124.512-.11.522-.187 1.02-.103 1.202.12.255.417.41.9.656.48.245 1.06.55 1.523.9.39.293.7.64.9.9.28.365.49.77.63 1.16.14.39.21.84.11 1.21-.1.36-.34.69-.71.87-.39.19-.88.24-1.47.14-.68-.11-1.41-.46-2.16-.9-1.33-.78-2.22-1.79-2.87-2.9-1.02-1.75-1.28-3.57-.89-4.78.24-.74.75-1.35 1.41-1.69.5-.25.83-.25 1.13-.25.13 0 .25 0 .36.01.25.01.4.03.58.19.17.16.6.6.73.79.13.19.26.46.04.9-.16.39-.64 1.18-.9 1.55-.19.27-.4.28-.74.1-.34-.18-1.42-.52-2.71-1.67-.2-.18-.34-.3-.44-.39-.14-.12-.24-.18-.37-.18s-.36.05-.56.08c-.17.03-.4.06-.62.17-.23.11-.39.26-.5.41-.2.25-.55.85-.55 1.66 0 .81.5 1.93.95 2.63.23.36 1.03 1.5 2.5 2.42 1.47.92 2.1 1.08 2.85 1.14.2.02.4.03.59.03.8 0 1.39-.13 1.68-.23.3-.1.5-.36.61-.42.11-.06.24-.1.37-.1.1 0 .21.01.31.05.1.04.21.11.33.21.12.1.8.72.94.86.14.14.28.15.52.1.25-.05 1.08-.4 1.23-1.39.15-.99.15-.92.25-1.05.1-.13.2-.11.31-.07.11.04.7.33 1.2.54.5.21.83.32.91.5.09.18.07 1.03-.15 1.99z"/>
+            </svg>
+            Continue to WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -449,20 +601,39 @@ const Customization: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-3">Frame Type</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {frameTypes.map((frame) => (
-                      <label key={frame.id} className="flex flex-col p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center mb-2">
-                          <input
-                            type="radio"
-                            name={`frame-${item.id}`}
-                            value={frame.id}
-                            checked={item.frameType === frame.id}
-                            onChange={(e) => updatePolaroidItem(item.id, { frameType: e.target.value })}
-                            className="mr-2"
-                          />
-                          <span className="font-medium text-sm">{frame.name}</span>
+                      <div 
+                        key={frame.id} 
+                        className={`border rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${frame.whatsappAction ? 'border-green-200' : ''}`}
+                        onClick={() => handleFrameSelect(frame, item.id)}
+                      >
+                        <div className="p-3 hover:bg-gray-50">
+                          <div className="flex items-center mb-2">
+                            <div className="flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 mr-2">
+                              {item.frameType === frame.id && (
+                                <div className="w-3 h-3 rounded-full bg-purple-600"></div>
+                              )}
+                            </div>
+                            <span className="font-medium text-sm">{frame.name}</span>
+                          </div>
+                          <span className="text-xs text-gray-600">{frame.description}</span>
                         </div>
-                        <span className="text-xs text-gray-600">{frame.description}</span>
-                      </label>
+                        {frame.whatsappAction && (
+                          <div className="px-3 pb-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFrameSelect(frame, item.id);
+                              }}
+                              className="w-full bg-green-500 hover:bg-green-600 text-white py-1.5 px-4 text-xs font-medium flex items-center justify-center transition-colors rounded-md"
+                            >
+                              <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M17.498 14.382l-.002-.001h-.016c-1.36 0-1.617-.639-2.326-2.227-.224-.5-.4-.86-.586-1.083-.226-.273-.35-.358-.541-.372-.134-.01-.257-.009-.372-.01s-.343 0-.53.077c-.416.171-.72.59-.925 1.247-.048.154-.086.333-.124.512-.11.522-.187 1.02-.103 1.202.12.255.417.41.9.656.48.245 1.06.55 1.523.9.39.293.7.64.9.9.28.365.49.77.63 1.16.14.39.21.84.11 1.21-.1.36-.34.69-.71.87-.39.19-.88.24-1.47.14-.68-.11-1.41-.46-2.16-.9-1.33-.78-2.22-1.79-2.87-2.9-1.02-1.75-1.28-3.57-.89-4.78.24-.74.75-1.35 1.41-1.69.5-.25.83-.25 1.13-.25.13 0 .25 0 .36.01.25.01.4.03.58.19.17.16.6.6.73.79.13.19.26.46.04.9-.16.39-.64 1.18-.9 1.55-.19.27-.4.28-.74.1-.34-.18-1.42-.52-2.71-1.67-.2-.18-.34-.3-.44-.39-.14-.12-.24-.18-.37-.18s-.36.05-.56.08c-.17.03-.4.06-.62.17-.23.11-.39.26-.5.41-.2.25-.55.85-.55 1.66 0 .81.5 1.93.95 2.63.23.36 1.03 1.5 2.5 2.42 1.47.92 2.1 1.08 2.85 1.14.2.02.4.03.59.03.8 0 1.39-.13 1.68-.23.3-.1.5-.36.61-.42.11-.06.24-.1.37-.1.1 0 .21.01.31.05.1.04.21.11.33.21.12.1.8.72.94.86.14.14.28.15.52.1.25-.05 1.08-.4 1.23-1.39.15-.99.15-.92.25-1.05.1-.13.2-.11.31-.07.11.04.7.33 1.2.54.5.21.83.32.91.5.09.18.07 1.03-.15 1.99z"/>
+                              </svg>
+                              Order Now
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -513,7 +684,7 @@ const Customization: React.FC = () => {
             ))}
 
             {/* Add to Cart */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-lg font-semibold text-gray-900">
@@ -532,9 +703,236 @@ const Customization: React.FC = () => {
                   Add to Cart
                 </button>
               </div>
+              
+              {/* Bulk Order Enquiry Toggle */}
+              <div className="text-center">
+                <button 
+                  onClick={() => setShowBulkEnquiry(!showBulkEnquiry)}
+                  className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                >
+                  {showBulkEnquiry ? 'Hide Bulk Order Enquiry' : 'Need a bulk order? Click here to enquire'}
+                </button>
+              </div>
+              
+              {/* Bulk Order Enquiry Form */}
+              {showBulkEnquiry && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Order Enquiry</h3>
+                  <form onSubmit={handleEnquirySubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          id="name"
+                          name="name"
+                          value={enquiryForm.name}
+                          onChange={handleEnquiryChange}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input
+                          type="email"
+                          id="email"
+                          name="email"
+                          value={enquiryForm.email}
+                          onChange={handleEnquiryChange}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                        <input
+                          type="tel"
+                          id="phone"
+                          name="phone"
+                          value={enquiryForm.phone}
+                          onChange={handleEnquiryChange}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">Estimated Quantity *</label>
+                        <select
+                          id="quantity"
+                          name="quantity"
+                          value={enquiryForm.quantity}
+                          onChange={handleEnquiryChange}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select quantity</option>
+                          <option value="10-50">10-50 pieces</option>
+                          <option value="51-100">51-100 pieces</option>
+                          <option value="101-250">101-250 pieces</option>
+                          <option value="251-500">251-500 pieces</option>
+                          <option value="500+">500+ pieces</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">Additional Details</label>
+                      <textarea
+                        id="message"
+                        name="message"
+                        value={enquiryForm.message}
+                        onChange={handleEnquiryChange}
+                        rows={3}
+                        placeholder="Tell us more about your bulk order requirements..."
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowBulkEnquiry(false)}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      >
+                        Submit Enquiry
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        {/* Bulk Order Enquiry Section */}
+        <div className="mt-12 bg-white rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Bulk Order Enquiry</h2>
+            <button
+              onClick={() => setShowBulkEnquiry(!showBulkEnquiry)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+            >
+              {showBulkEnquiry ? 'Hide Form' : 'Request Bulk Order'}
+            </button>
+          </div>
+
+          {showBulkEnquiry && (
+            <div className="mt-6">
+              {enquiryStatus === 'success' ? (
+                <div className="p-4 mb-6 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-800">Thank you for your enquiry! We'll get back to you soon.</p>
+                </div>
+              ) : enquiryStatus === 'error' ? (
+                <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-800">Failed to submit enquiry. Please try again later.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleEnquirySubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value={enquiryForm.name}
+                        onChange={handleEnquiryChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={enquiryForm.email}
+                        onChange={handleEnquiryChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={enquiryForm.phone}
+                        onChange={handleEnquiryChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
+                        Estimated Quantity *
+                      </label>
+                      <select
+                        id="quantity"
+                        name="quantity"
+                        value={enquiryForm.quantity}
+                        onChange={handleEnquiryChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        <option value="">Select quantity range</option>
+                        <option value="10-50">10-50 pieces</option>
+                        <option value="51-100">51-100 pieces</option>
+                        <option value="101-250">101-250 pieces</option>
+                        <option value="251-500">251-500 pieces</option>
+                        <option value="500+">500+ pieces</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+                      Additional Requirements
+                    </label>
+                    <textarea
+                      id="message"
+                      name="message"
+                      rows={4}
+                      value={enquiryForm.message}
+                      onChange={handleEnquiryChange}
+                      placeholder="Tell us more about your bulk order requirements, including any specific designs, sizes, or customization needs..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkEnquiry(false)}
+                      className="mr-3 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      disabled={enquiryStatus === 'submitting'}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 border border-transparent rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+                      disabled={enquiryStatus === 'submitting'}
+                    >
+                      {enquiryStatus === 'submitting' ? 'Submitting...' : 'Submit Enquiry'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Instructions */}
         {selectedProductType && (
@@ -562,6 +960,9 @@ const Customization: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* WhatsApp Order Modal */}
+      {showWhatsAppModal && selectedFrame && <WhatsAppOrderModal />}
     </div>
   );
 };

@@ -5,15 +5,15 @@ export interface Product {
   price: number;
   originalPrice?: number;
   images: string[];
-  category: 'poster' | 'polaroid' | 'bundle' | 'customizable';
-  subcategory: string;
+  category: 'poster' | 'polaroid' | 'bundle' | 'customizable' | 'split_poster';
+  subcategory?: string;
   size?: string;
   theme?: string;
   inStock: boolean;
   featured: boolean;
   hidden?: boolean;
-  ratings: number;
-  reviewCount: number;
+  ratings?: number;
+  reviewCount?: number;
   createdAt?: any;
   updatedAt?: any;
 }

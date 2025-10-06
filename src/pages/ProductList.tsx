@@ -18,50 +18,46 @@ const ProductList: React.FC = () => {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedThemes, setSelectedThemes] = useState<string[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [showSplitPoster, setShowSplitPoster] = useState(false);
   
-  // Extract all unique filter options
+  // Predefined filter options
   const { sizes, themes, subcategories } = useMemo(() => {
-    const sizeSet = new Set<string>();
-    const themeSet = new Set<string>();
-    const subcategorySet = new Set<string>();
+    // Predefined sizes
+    const predefinedSizes = [
+      'A4',
+      '12x9',
+      'A3'
+    ];
+  
     
+    // Predefined themes
+    const predefinedThemes = [
+      'Movies',
+      'Series',
+      'Anime & Manga',
+      'Sports',
+      'Cars',
+      'Music',
+      'Games',
+      'Devotional',
+      'Motivational',
+      'Gym',
+      'Super Heroes'
+    ];
+    
+    // Extract unique subcategories from products
+    const subcategorySet = new Set<string>();
     allProducts.forEach(product => {
-      if (product.size) sizeSet.add(product.size);
-      if (product.theme) themeSet.add(product.theme);
-      if (product.subcategory) subcategorySet.add(product.subcategory);
+      if ((product as any).subcategory) subcategorySet.add((product as any).subcategory);
     });
     
     return {
-      sizes: Array.from(sizeSet).sort(),
-      themes: Array.from(themeSet).sort(),
+      sizes: predefinedSizes,
+      themes: predefinedThemes,
       subcategories: Array.from(subcategorySet).sort()
     };
   }, [allProducts]);
   
-  // Filter products based on selected filters
-  useEffect(() => {
-    let result = [...allProducts];
-    
-    if (selectedSizes.length > 0) {
-      result = result.filter(product => 
-        product.size && selectedSizes.includes(product.size)
-      );
-    }
-    
-    if (selectedThemes.length > 0) {
-      result = result.filter(product => 
-        product.theme && selectedThemes.includes(product.theme)
-      );
-    }
-    
-    if (selectedSubcategories.length > 0) {
-      result = result.filter(product => 
-        product.subcategory && selectedSubcategories.includes(product.subcategory)
-      );
-    }
-    
-    setFilteredProducts(result);
-  }, [allProducts, selectedSizes, selectedThemes, selectedSubcategories]);
   
   // Toggle filter selection
   const toggleFilter = (filterType: 'size' | 'theme' | 'subcategory', value: string) => {
@@ -114,6 +110,58 @@ const ProductList: React.FC = () => {
 
   const category = getCategoryFromPath();
 
+  // Filter products based on selected filters
+  useEffect(() => {
+    let result = [...allProducts];
+    console.log(`🔍 Starting filter with ${allProducts.length} products`);
+    
+    // Filter by poster type when on poster page
+    if (category === 'poster') {
+      const beforeFilterCount = result.length;
+      if (showSplitPoster) {
+        result = result.filter(product => product.category === 'split_poster');
+        console.log(`📊 Split poster filter: ${beforeFilterCount} → ${result.length} products`);
+      } else {
+        result = result.filter(product => product.category === 'poster');
+        console.log(`📊 Regular poster filter: ${beforeFilterCount} → ${result.length} products`);
+      }
+    }
+    
+    if (selectedSizes.length > 0) {
+      const beforeCount = result.length;
+      result = result.filter(product => 
+        (product as any).size && selectedSizes.includes((product as any).size)
+      );
+      console.log(`📊 Size filter: ${beforeCount} → ${result.length} products`);
+    }
+    
+    if (selectedThemes.length > 0) {
+      const beforeCount = result.length;
+      result = result.filter(product => 
+        (product as any).theme && selectedThemes.includes((product as any).theme)
+      );
+      console.log(`📊 Theme filter: ${beforeCount} → ${result.length} products`);
+    }
+    
+    if (selectedSubcategories.length > 0) {
+      const beforeCount = result.length;
+      result = result.filter(product => 
+        (product as any).subcategory && selectedSubcategories.includes((product as any).subcategory)
+      );
+      console.log(`📊 Subcategory filter: ${beforeCount} → ${result.length} products`);
+    }
+    
+    console.log(`✅ Final filtered products: ${result.length}`);
+    setFilteredProducts(result);
+  }, [allProducts, selectedSizes, selectedThemes, selectedSubcategories, showSplitPoster, category]);
+
+  // Reset toggle when category changes
+  useEffect(() => {
+    if (category !== 'poster') {
+      setShowSplitPoster(false);
+    }
+  }, [category]);
+
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -121,8 +169,21 @@ const ProductList: React.FC = () => {
         let fetchedProducts: Product[] = [];
 
         if (category) {
-          const fetchedProductsByCategory = await productsService.getProductsByCategory(category);
-          fetchedProducts = fetchedProductsByCategory;
+          if (category === 'poster') {
+            // For poster page, load both poster and split_poster categories
+            try {
+              const posterProducts = await productsService.getProductsByCategory('poster');
+              const splitPosterProducts = await productsService.getProductsByCategory('split_poster');
+              fetchedProducts = [...posterProducts, ...splitPosterProducts];
+              console.log(`📦 Loaded ${posterProducts.length} poster products and ${splitPosterProducts.length} split poster products`);
+            } catch (error) {
+              console.error('Error loading poster products:', error);
+              fetchedProducts = [];
+            }
+          } else {
+            const fetchedProductsByCategory = await productsService.getProductsByCategory(category);
+            fetchedProducts = fetchedProductsByCategory;
+          }
         } else {
           fetchedProducts = await productsService.getAllProducts();
         }
@@ -258,6 +319,35 @@ const ProductList: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 {getPageTitle()}
               </h1>
+              
+              {/* Poster/Split Poster Toggle */}
+              {category === 'poster' && (
+                <div className="mt-3 mb-2">
+                  <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setShowSplitPoster(false)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        !showSplitPoster 
+                          ? 'bg-white text-purple-600 shadow-sm' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Regular Posters
+                    </button>
+                    <button
+                      onClick={() => setShowSplitPoster(true)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        showSplitPoster 
+                          ? 'bg-white text-purple-600 shadow-sm' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Split Posters
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center space-x-4">
                 <p className="text-gray-600">
                   {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
@@ -282,12 +372,12 @@ const ProductList: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Mobile filter button */}
-        <div className="lg:hidden mb-6">
+        <div className="lg:hidden mb-4 sm:mb-6">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-3 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             <FiFilter className="h-4 w-4" />
             <span>Filters</span>
@@ -299,9 +389,9 @@ const ProductList: React.FC = () => {
           </button>
         </div>
         
-        <div className="lg:flex lg:space-x-8">
-          {/* Desktop Filters */}
-          <div className={`lg:w-64 flex-shrink-0 ${!showFilters ? 'hidden' : ''} lg:block`}>
+        <div className="flex flex-col lg:flex-row lg:space-x-8">
+          {/* Mobile/Desktop Filters */}
+          <div className={`w-full lg:w-64 flex-shrink-0 mb-6 lg:mb-0 ${!showFilters ? 'hidden' : 'block'} lg:block`}>
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-medium text-gray-900">Filters</h2>
@@ -349,11 +439,11 @@ const ProductList: React.FC = () => {
           {/* Product Grid */}
           <div className="flex-1">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {[...Array(8)].map((_, index) => (
               <div key={index} className="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
-                <div className="h-48 bg-gray-300"></div>
-                <div className="p-4">
+                <div className="h-40 sm:h-48 bg-gray-300"></div>
+                <div className="p-3 sm:p-4">
                   <div className="h-4 bg-gray-300 rounded mb-2"></div>
                   <div className="h-4 bg-gray-300 rounded w-3/4"></div>
                 </div>
@@ -380,7 +470,7 @@ const ProductList: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

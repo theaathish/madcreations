@@ -24,6 +24,7 @@ import Dashboard from './pages/admin/Dashboard';
 import ProductManagement from './pages/admin/ProductManagement';
 import OrderManagement from './pages/admin/OrderManagement';
 import CustomerManagement from './pages/admin/CustomerManagement';
+import BulkOrderEnquiries from './pages/admin/BulkOrderEnquiries';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -75,6 +76,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="products" element={<ProductManagement />} />
               <Route path="orders" element={<OrderManagement />} />
+              <Route path="bulk-orders" element={<BulkOrderEnquiries />} />
               <Route path="customers" element={<CustomerManagement />} />
               <Route path="analytics" element={<div className="p-8"><h1 className="text-2xl">Analytics</h1></div>} />
               <Route path="settings" element={<div className="p-8"><h1 className="text-2xl">Settings</h1></div>} />
