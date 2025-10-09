@@ -23,10 +23,11 @@ const ProductDetail: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
+  const [selectedSizeOption, setSelectedSizeOption] = useState<{size: string, price: number, originalPrice?: number} | null>(null);
   const { dispatch } = useCart();
 
-  // Available size options
-  const sizeOptions = ['A4', '12x9', 'A3'];
+  // Available size options (fallback for legacy products)
+  const defaultSizeOptions = ['A4', '12x9', 'A3'];
 
   useEffect(() => {
     if (id) {
@@ -123,14 +124,50 @@ const ProductDetail: React.FC = () => {
     }
   };
 
+  const handleSizeSelection = (size: string) => {
+    setSelectedSize(size);
+    
+    // Find the selected size option for multi-size products
+    if (product?.isMultiSize && product.sizeOptions) {
+      const sizeOption = product.sizeOptions.find(option => option.size === size);
+      setSelectedSizeOption(sizeOption || null);
+    } else {
+      setSelectedSizeOption(null);
+    }
+  };
+
+  const getCurrentPrice = () => {
+    if (product?.isMultiSize && selectedSizeOption) {
+      return selectedSizeOption.price;
+    }
+    return product?.price || 0;
+  };
+
+  const getCurrentOriginalPrice = () => {
+    if (product?.isMultiSize && selectedSizeOption) {
+      return selectedSizeOption.originalPrice;
+    }
+    return product?.originalPrice;
+  };
+
   const handleAddToCart = () => {
     if (product && selectedSize) {
+      // Create a modified product with the selected size price
+      const productForCart = {
+        ...product,
+        price: getCurrentPrice(),
+        originalPrice: getCurrentOriginalPrice()
+      };
+      
       dispatch({
         type: 'ADD_ITEM',
         payload: { 
-          product, 
+          product: productForCart, 
           quantity,
-          customizations: { size: selectedSize }
+          customizations: { 
+            size: selectedSize,
+            sizePrice: getCurrentPrice()
+          }
         }
       });
       alert(`Added ${quantity} ${product.name}(s) (${selectedSize}) to cart!`);
@@ -365,13 +402,13 @@ const ProductDetail: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
-                <span className="text-3xl font-bold text-purple-600">₹{product.price}</span>
-                {product.originalPrice && (
-                  <span className="text-xl text-gray-500 line-through">₹{product.originalPrice}</span>
+                <span className="text-3xl font-bold text-purple-600">₹{getCurrentPrice()}</span>
+                {getCurrentOriginalPrice() && (
+                  <span className="text-xl text-gray-500 line-through">₹{getCurrentOriginalPrice()}</span>
                 )}
-                {product.originalPrice && (
+                {getCurrentOriginalPrice() && (
                   <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm font-semibold">
-                    {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                    {Math.round(((getCurrentOriginalPrice()! - getCurrentPrice()) / getCurrentOriginalPrice()!) * 100)}% OFF
                   </span>
                 )}
               </div>
@@ -443,17 +480,24 @@ const ProductDetail: React.FC = () => {
               <div className="mb-4 sm:mb-6">
                 <span className="text-base sm:text-lg font-semibold text-gray-900 block mb-3">Select Size:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {sizeOptions.map((size) => (
+                  {(product?.isMultiSize && product.sizeOptions ? product.sizeOptions : 
+                    defaultSizeOptions.map(size => ({ size, price: product?.price || 0 }))
+                  ).map((sizeOption) => (
                     <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
+                      key={sizeOption.size}
+                      onClick={() => handleSizeSelection(sizeOption.size)}
                       className={`p-3 border-2 rounded-lg text-center font-medium transition-colors ${
-                        selectedSize === size
+                        selectedSize === sizeOption.size
                           ? 'border-purple-500 bg-purple-50 text-purple-700'
                           : 'border-gray-300 hover:border-gray-400 text-gray-700'
                       }`}
                     >
-                      {size}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">{sizeOption.size}</span>
+                        {product?.isMultiSize && (
+                          <span className="text-xs text-purple-600 mt-1">₹{sizeOption.price}</span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>

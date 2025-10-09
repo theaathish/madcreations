@@ -114,11 +114,41 @@ export const productsService = {
   async createProduct(productData: Omit<Product, 'id'>): Promise<string> {
     try {
       const productsRef = collection(db, 'products');
-      const docRef = await addDoc(productsRef, {
-        ...productData,
+      
+      // Cast to any to access optional properties safely
+      const data = productData as any;
+      
+      // Clean the product data to remove undefined values
+      const cleanedData: any = {
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        images: data.images || [],
+        category: data.category,
+        inStock: data.inStock ?? true,
+        featured: data.featured ?? false,
+        hidden: data.hidden ?? false,
+        ratings: data.ratings ?? 0,
+        reviewCount: data.reviewCount ?? 0,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
-      });
+      };
+
+      // Only add optional fields if they have defined values
+      if (data.originalPrice !== undefined && data.originalPrice !== null) {
+        cleanedData.originalPrice = data.originalPrice;
+      }
+      if (data.subcategory !== undefined && data.subcategory !== null && data.subcategory !== '') {
+        cleanedData.subcategory = data.subcategory;
+      }
+      if (data.size !== undefined && data.size !== null && data.size !== '') {
+        cleanedData.size = data.size;
+      }
+      if (data.theme !== undefined && data.theme !== null && data.theme !== '') {
+        cleanedData.theme = data.theme;
+      }
+
+      const docRef = await addDoc(productsRef, cleanedData);
       return docRef.id;
     } catch (error) {
       console.error('Error creating product:', error);
@@ -130,10 +160,21 @@ export const productsService = {
   async updateProduct(id: string, productData: Partial<Product>): Promise<void> {
     try {
       const productRef = doc(db, 'products', id);
-      await updateDoc(productRef, {
-        ...productData,
+      
+      // Clean the update data to remove undefined values
+      const cleanedData: any = {
         updatedAt: Timestamp.now(),
+      };
+
+      // Only add fields that are not undefined
+      Object.keys(productData).forEach(key => {
+        const value = (productData as any)[key];
+        if (value !== undefined) {
+          cleanedData[key] = value;
+        }
       });
+
+      await updateDoc(productRef, cleanedData);
     } catch (error) {
       console.error('Error updating product:', error);
       throw error;
@@ -397,13 +438,16 @@ export const searchService = {
           id: doc.id,
           ...doc.data()
         } as Product))
-        .filter(product =>
-          product.name.toLowerCase().includes(searchTermLower) ||
-          product.description.toLowerCase().includes(searchTermLower) ||
-          product.category.toLowerCase().includes(searchTermLower) ||
-          product.subcategory.toLowerCase().includes(searchTermLower) ||
-          (product.theme && product.theme.toLowerCase().includes(searchTermLower))
-        );
+        .filter(product => {
+          const productData = product as any;
+          return (
+            product.name.toLowerCase().includes(searchTermLower) ||
+            product.description.toLowerCase().includes(searchTermLower) ||
+            product.category.toLowerCase().includes(searchTermLower) ||
+            (productData.subcategory && productData.subcategory.toLowerCase().includes(searchTermLower)) ||
+            (productData.theme && productData.theme.toLowerCase().includes(searchTermLower))
+          );
+        });
 
       return filteredProducts;
     } catch (error) {

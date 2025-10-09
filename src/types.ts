@@ -1,8 +1,14 @@
+export interface SizeOption {
+  size: string;
+  price: number;
+  originalPrice?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
+  price: number; // Base price (for backward compatibility)
   originalPrice?: number;
   category: string;
   images: string[];
@@ -10,6 +16,9 @@ export interface Product {
   inStock: boolean;
   createdAt?: any;
   updatedAt?: any;
+  // Multi-size support
+  sizeOptions?: SizeOption[];
+  isMultiSize?: boolean;
   // Add any other product fields you need
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit2, Trash2, X, Package } from 'lucide-react';
 import { productsService, imageService } from '../../services/firebaseService';
-import { Product } from '../../types';
+import { Product, SizeOption } from '../../types';
 
 const ProductManagement: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -41,8 +41,14 @@ const ProductManagement: React.FC = () => {
     theme: themeOptions[0], // Set default to first theme
     inStock: true,
     featured: false,
-    hidden: false
+    hidden: false,
+    isMultiSize: false
   });
+  const [sizeOptionsList, setSizeOptionsList] = useState<SizeOption[]>([
+    { size: 'A4', price: 80 },
+    { size: 'A3', price: 100 },
+    { size: '13x19 in', price: 130 }
+  ]);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -160,6 +166,20 @@ const ProductManagement: React.FC = () => {
     }));
   };
 
+  const addSizeOption = () => {
+    setSizeOptionsList(prev => [...prev, { size: '', price: 0 }]);
+  };
+
+  const removeSizeOption = (index: number) => {
+    setSizeOptionsList(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateSizeOption = (index: number, field: 'size' | 'price' | 'originalPrice', value: string | number | undefined) => {
+    setSizeOptionsList(prev => prev.map((option, i) => 
+      i === index ? { ...option, [field]: value } : option
+    ));
+  };
+
   const uploadImageToStorage = async (file: File, productId: string, imageIndex: number = 0): Promise<string> => {
     console.log('Uploading image to tree structure for product:', productId);
 
@@ -198,12 +218,18 @@ const ProductManagement: React.FC = () => {
       originalPrice: '',
       category: 'poster',
       subcategory: '',
-      size: '',
-      theme: '',
+      size: sizeOptions[0], // Set default to first size
+      theme: themeOptions[0], // Set default to first theme
       inStock: true,
       featured: false,
-      hidden: false
+      hidden: false,
+      isMultiSize: false
     });
+    setSizeOptionsList([
+      { size: 'A4', price: 80 },
+      { size: 'A3', price: 100 },
+      { size: '13x19 in', price: 130 }
+    ]);
     setSelectedImages([]);
     setImagePreviews([]);
   };
@@ -211,9 +237,17 @@ const ProductManagement: React.FC = () => {
   const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.description || !formData.price) {
+    if (!formData.name || !formData.description || (!formData.isMultiSize && !formData.price)) {
       alert('Please fill in all required fields');
       return;
+    }
+
+    // Validate multi-size options if enabled
+    if (formData.isMultiSize) {
+      if (sizeOptionsList.length === 0 || sizeOptionsList.some(option => !option.size || !option.price)) {
+        alert('Please fill in all size options with valid sizes and prices');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -258,19 +292,35 @@ const ProductManagement: React.FC = () => {
       const newProduct: any = {
         name: formData.name,
         description: formData.description,
-        price: parseFloat(formData.price),
-        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+        price: formData.isMultiSize ? sizeOptionsList[0]?.price || parseFloat(formData.price) : parseFloat(formData.price),
         images: ['https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'], // Default image
         category: formData.category as 'poster' | 'polaroid' | 'bundle' | 'customizable' | 'split_poster',
-        subcategory: formData.subcategory || undefined,
-        size: formData.size || undefined,
-        theme: formData.theme || undefined,
         inStock: formData.inStock,
         featured: formData.featured,
-        hidden: formData.hidden || undefined,
+        hidden: formData.hidden,
+        isMultiSize: formData.isMultiSize,
         ratings: 4.5, // Default rating
         reviewCount: 0 // Default review count
       };
+      
+      // Add size options for multi-size products
+      if (formData.isMultiSize) {
+        newProduct.sizeOptions = sizeOptionsList;
+      }
+      
+      // Only add optional fields if they have values
+      if (formData.originalPrice) {
+        newProduct.originalPrice = parseFloat(formData.originalPrice);
+      }
+      if (formData.subcategory) {
+        newProduct.subcategory = formData.subcategory;
+      }
+      if (formData.size) {
+        newProduct.size = formData.size;
+      }
+      if (formData.theme) {
+        newProduct.theme = formData.theme;
+      }
 
       // Save to Firebase to get product ID (now safe because images are pre-validated)
       const productId = await productsService.createProduct(newProduct);
@@ -349,8 +399,20 @@ const ProductManagement: React.FC = () => {
       theme: (product as any).theme || '',
       inStock: product.inStock,
       featured: product.featured || false,
-      hidden: (product as any).hidden || false
+      hidden: (product as any).hidden || false,
+      isMultiSize: product.isMultiSize || false
     });
+    
+    // Load existing size options if it's a multi-size product
+    if (product.isMultiSize && product.sizeOptions) {
+      setSizeOptionsList(product.sizeOptions);
+    } else {
+      setSizeOptionsList([
+        { size: 'A4', price: 80 },
+        { size: 'A3', price: 100 },
+        { size: '13x19 in', price: 130 }
+      ]);
+    }
     setSelectedImages([]);
 
     // Load images from tree structure
@@ -366,10 +428,17 @@ const ProductManagement: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingProduct(null);
+    resetForm();
+  };
+
+
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!editingProduct || !formData.name || !formData.description || !formData.price) {
+    if (!editingProduct || !formData.name || !formData.description || (!formData.isMultiSize && !formData.price)) {
       alert('Please fill in all required fields');
       return;
     }
@@ -430,16 +499,34 @@ const ProductManagement: React.FC = () => {
       const updatedProduct: any = {
         name: formData.name,
         description: formData.description,
-        price: parseFloat(formData.price),
-        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
         category: formData.category as 'poster' | 'polaroid' | 'bundle' | 'customizable' | 'split_poster',
-        subcategory: formData.subcategory || undefined,
-        size: formData.size || undefined,
-        theme: formData.theme || undefined,
         inStock: formData.inStock,
         featured: formData.featured,
-        hidden: formData.hidden || undefined
+        hidden: formData.hidden,
+        isMultiSize: formData.isMultiSize
       };
+
+      // Handle pricing based on multi-size
+      if (formData.isMultiSize) {
+        updatedProduct.sizeOptions = sizeOptionsList;
+        updatedProduct.price = sizeOptionsList[0]?.price || 0; // Set base price to first option
+      } else {
+        updatedProduct.price = parseFloat(formData.price);
+      }
+      
+      // Only add optional fields if they have values
+      if (formData.originalPrice) {
+        updatedProduct.originalPrice = parseFloat(formData.originalPrice);
+      }
+      if (formData.subcategory) {
+        updatedProduct.subcategory = formData.subcategory;
+      }
+      if (formData.size) {
+        updatedProduct.size = formData.size;
+      }
+      if (formData.theme) {
+        updatedProduct.theme = formData.theme;
+      }
 
       // Update in Firebase
       await productsService.updateProduct(editingProduct.id, updatedProduct);
@@ -459,12 +546,6 @@ const ProductManagement: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleCloseEditModal = () => {
-    setShowEditModal(false);
-    setEditingProduct(null);
-    resetForm();
   };
 
   const getStatusColor = (inStock: boolean): string => {
@@ -718,9 +799,20 @@ const ProductManagement: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">₹{product.price}</div>
-                    {product.originalPrice && (
-                      <div className="text-sm text-gray-500 line-through">₹{product.originalPrice}</div>
+                    {product.isMultiSize && product.sizeOptions ? (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Multi-size</div>
+                        <div className="text-xs text-gray-500">
+                          ₹{Math.min(...product.sizeOptions.map(s => s.price))} - ₹{Math.max(...product.sizeOptions.map(s => s.price))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">₹{product.price}</div>
+                        {product.originalPrice && (
+                          <div className="text-sm text-gray-500 line-through">₹{product.originalPrice}</div>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -870,54 +962,135 @@ const ProductManagement: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Price (₹) *
-                    </label>
+                {/* Multi-size toggle */}
+                <div className="flex items-center space-x-4 mb-4">
+                  <label className="flex items-center">
                     <input
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => handleInputChange('price', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="0"
-                      required
+                      type="checkbox"
+                      checked={formData.isMultiSize}
+                      onChange={(e) => handleInputChange('isMultiSize', e.target.checked)}
+                      className="mr-2"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Original Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.originalPrice}
-                      onChange={(e) => handleInputChange('originalPrice', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="0"
-                    />
-                  </div>
+                    <span className="text-sm font-medium text-gray-700">Multiple Size Options</span>
+                  </label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Conditional pricing based on multi-size */}
+                {!formData.isMultiSize ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => handleInputChange('price', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="0"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Original Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.originalPrice}
+                        onChange={(e) => handleInputChange('originalPrice', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Size
+                      Size Options *
                     </label>
-                    <select
-                      value={formData.size}
-                      onChange={(e) => handleInputChange('size', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      required
-                    >
-                      {sizeOptions.map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
+                    <div className="space-y-3">
+                      {sizeOptionsList.map((sizeOption, index) => (
+                        <div key={index} className="grid grid-cols-4 gap-2 items-end">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Size</label>
+                            <input
+                              type="text"
+                              value={sizeOption.size}
+                              onChange={(e) => updateSizeOption(index, 'size', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              placeholder="e.g. A4"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Price (₹)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={sizeOption.price}
+                              onChange={(e) => updateSizeOption(index, 'price', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Original Price</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={sizeOption.originalPrice || ''}
+                              onChange={(e) => updateSizeOption(index, 'originalPrice', e.target.value ? parseFloat(e.target.value) : undefined)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => removeSizeOption(index)}
+                              className="px-2 py-1 text-red-600 hover:text-red-700 text-sm"
+                              disabled={sizeOptionsList.length <= 1}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
                       ))}
-                    </select>
+                      <button
+                        type="button"
+                        onClick={addSizeOption}
+                        className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+                      >
+                        + Add Size Option
+                      </button>
+                    </div>
                   </div>
+                )}
+
+                <div className={`grid ${formData.isMultiSize ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
+                  {!formData.isMultiSize && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Size
+                      </label>
+                      <select
+                        value={formData.size}
+                        onChange={(e) => handleInputChange('size', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                      >
+                        {sizeOptions.map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Theme
@@ -1105,49 +1278,130 @@ const ProductManagement: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Price (₹) *
-                    </label>
+                {/* Multi-size toggle */}
+                <div className="flex items-center space-x-4 mb-4">
+                  <label className="flex items-center">
                     <input
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => handleInputChange('price', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="0"
-                      required
+                      type="checkbox"
+                      checked={formData.isMultiSize}
+                      onChange={(e) => handleInputChange('isMultiSize', e.target.checked)}
+                      className="mr-2"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Original Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.originalPrice}
-                      onChange={(e) => handleInputChange('originalPrice', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="0"
-                    />
-                  </div>
+                    <span className="text-sm font-medium text-gray-700">Multiple Size Options</span>
+                  </label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Conditional pricing based on multi-size */}
+                {!formData.isMultiSize ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => handleInputChange('price', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="0"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Original Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.originalPrice}
+                        onChange={(e) => handleInputChange('originalPrice', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Size
+                      Size Options *
                     </label>
-                    <input
-                      type="text"
-                      value={formData.size}
-                      onChange={(e) => handleInputChange('size', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="e.g., A4, A3, 12x18"
-                    />
+                    <div className="space-y-3">
+                      {sizeOptionsList.map((sizeOption, index) => (
+                        <div key={index} className="grid grid-cols-4 gap-2 items-end">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Size</label>
+                            <input
+                              type="text"
+                              value={sizeOption.size}
+                              onChange={(e) => updateSizeOption(index, 'size', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              placeholder="e.g. A4"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Price (₹)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={sizeOption.price}
+                              onChange={(e) => updateSizeOption(index, 'price', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Original Price</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={sizeOption.originalPrice || ''}
+                              onChange={(e) => updateSizeOption(index, 'originalPrice', e.target.value ? parseFloat(e.target.value) : undefined)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => removeSizeOption(index)}
+                              className="px-2 py-1 text-red-600 hover:text-red-700 text-sm"
+                              disabled={sizeOptionsList.length <= 1}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={addSizeOption}
+                        className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+                      >
+                        + Add Size Option
+                      </button>
+                    </div>
                   </div>
+                )}
+
+                <div className={`grid ${formData.isMultiSize ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
+                  {!formData.isMultiSize && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Size
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.size}
+                        onChange={(e) => handleInputChange('size', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="e.g., A4, A3, 12x18"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Theme

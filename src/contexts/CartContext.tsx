@@ -8,8 +8,8 @@ interface CartState {
 
 type CartAction =
   | { type: 'ADD_ITEM'; payload: { product: Product; quantity: number; customizations?: Record<string, any> } }
-  | { type: 'REMOVE_ITEM'; payload: string }
-  | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number } }
+  | { type: 'REMOVE_ITEM'; payload: { productId: string; size?: string } }
+  | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number; size?: string } }
   | { type: 'CLEAR_CART' };
 
 const CartContext = createContext<{
@@ -20,11 +20,16 @@ const CartContext = createContext<{
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const existingItem = state.items.find(item => item.product.id === action.payload.product.id);
+      // Check for existing item with same product ID AND same size
+      const existingItem = state.items.find(item => 
+        item.product.id === action.payload.product.id && 
+        item.customizations?.size === action.payload.customizations?.size
+      );
       
       if (existingItem) {
         const updatedItems = state.items.map(item =>
-          item.product.id === action.payload.product.id
+          item.product.id === action.payload.product.id && 
+          item.customizations?.size === action.payload.customizations?.size
             ? { ...item, quantity: item.quantity + action.payload.quantity }
             : item
         );
@@ -42,13 +47,17 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       }
     }
     case 'REMOVE_ITEM': {
-      const updatedItems = state.items.filter(item => item.product.id !== action.payload);
+      const updatedItems = state.items.filter(item => 
+        !(item.product.id === action.payload.productId && 
+          item.customizations?.size === action.payload.size)
+      );
       const total = updatedItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
       return { items: updatedItems, total };
     }
     case 'UPDATE_QUANTITY': {
       const updatedItems = state.items.map(item =>
-        item.product.id === action.payload.productId
+        item.product.id === action.payload.productId && 
+        item.customizations?.size === action.payload.size
           ? { ...item, quantity: action.payload.quantity }
           : item
       ).filter(item => item.quantity > 0);

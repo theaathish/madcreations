@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Truck, Lock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { OrderItem } from '../types';
+import { OrderItem, CartItem } from '../types';
 
 const Cart: React.FC = () => {
   const { state, dispatch } = useCart();
@@ -14,8 +14,18 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
 
   // Calculate cart totals and check minimum order quantity
-  const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0);
-  const meetsMinimumOrder = totalItems >= 10;
+  
+  // Check minimum order requirements by category
+  const polaroidItems = state.items.filter(item => item.product.category === 'polaroid');
+  const otherItems = state.items.filter(item => item.product.category !== 'polaroid');
+  
+  const polaroidQuantity = polaroidItems.reduce((sum, item) => sum + item.quantity, 0);
+  const otherQuantity = otherItems.reduce((sum, item) => sum + item.quantity, 0);
+  
+  // Polaroids need minimum 10, others need minimum 1 (if any items exist)
+  const polaroidMeetsMinimum = polaroidItems.length === 0 || polaroidQuantity >= 10;
+  const otherMeetsMinimum = otherItems.length === 0 || otherQuantity >= 1;
+  const meetsMinimumOrder = polaroidMeetsMinimum && otherMeetsMinimum;
   const subtotal = state.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const shippingCost = shippingMethod === 'express' ? 99 : 0;
   const total = subtotal + shippingCost;
@@ -123,17 +133,22 @@ const Cart: React.FC = () => {
     }
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, quantity: number, item: CartItem) => {
+    
+    // Set minimum quantity based on category
+    const minQuantity = item.product.category === 'polaroid' ? 10 : 1;
+    const finalQuantity = Math.max(minQuantity, quantity);
+    
     dispatch({
       type: 'UPDATE_QUANTITY',
-      payload: { productId, quantity }
+      payload: { productId, quantity: finalQuantity, size: item.customizations?.size }
     });
   };
 
-  const removeItem = (productId: string) => {
+  const removeItem = (productId: string, size?: string) => {
     dispatch({
       type: 'REMOVE_ITEM',
-      payload: productId
+      payload: { productId, size }
     });
   };
 
@@ -216,31 +231,48 @@ const Cart: React.FC = () => {
                         )}
                         <p className="mt-1 text-sm text-gray-500">
                           {item.product.category}
+                          {item.customizations?.size && (
+                            <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                              Size: {item.customizations.size}
+                            </span>
+                          )}
                         </p>
                         
                         {/* Quantity Selector */}
                         <div className="mt-4 flex items-center">
-                          <button
-                            onClick={() => updateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
-                            className="p-1 text-gray-500 hover:text-gray-700"
-                            disabled={item.quantity <= 1}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                          <span className="mx-2 text-gray-700">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                            className="p-1 text-gray-500 hover:text-gray-700"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => removeItem(item.product.id)}
-                            className="ml-4 text-red-600 hover:text-red-700 text-sm flex items-center"
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Remove
-                          </button>
+                          {(() => {
+                            const minQuantity = item.product.category === 'polaroid' ? 10 : 1;
+                            const isAtMinimum = item.quantity <= minQuantity;
+                            
+                            return (
+                              <>
+                                <button
+                                  onClick={() => updateQuantity(item.product.id, item.quantity - 1, item)}
+                                  className={`p-1 ${isAtMinimum ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}
+                                  disabled={isAtMinimum}
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </button>
+                                <span className="mx-2 text-gray-700">{item.quantity}</span>
+                                <button
+                                  onClick={() => updateQuantity(item.product.id, item.quantity + 1, item)}
+                                  className="p-1 text-gray-500 hover:text-gray-700"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                                {item.product.category === 'polaroid' && (
+                                  <span className="ml-2 text-xs text-gray-500">(min 10)</span>
+                                )}
+                                <button
+                                  onClick={() => removeItem(item.product.id, item.customizations?.size)}
+                                  className="ml-4 text-red-600 hover:text-red-700 text-sm flex items-center"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Remove
+                                </button>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -304,8 +336,25 @@ const Cart: React.FC = () => {
                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 rounded-md z-10">
                     <div className="text-center p-4">
                       <Lock className="h-6 w-6 mx-auto text-gray-500 mb-2" />
-                      <p className="text-sm text-gray-700">Add {10 - totalItems} more items to unlock checkout</p>
-                      <p className="text-xs text-gray-500 mt-1">Minimum order of 10 items required</p>
+                      {!polaroidMeetsMinimum && !otherMeetsMinimum ? (
+                        <div>
+                          <p className="text-sm text-gray-700">Minimum order requirements not met</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Polaroids: {10 - polaroidQuantity} more needed (min 10) • 
+                            Other items: {1 - otherQuantity} more needed (min 1)
+                          </p>
+                        </div>
+                      ) : !polaroidMeetsMinimum ? (
+                        <div>
+                          <p className="text-sm text-gray-700">Add {10 - polaroidQuantity} more Polaroids to unlock checkout</p>
+                          <p className="text-xs text-gray-500 mt-1">Minimum 10 Polaroids required</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm text-gray-700">Add {1 - otherQuantity} more item to unlock checkout</p>
+                          <p className="text-xs text-gray-500 mt-1">Minimum 1 item required for non-Polaroid categories</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button
