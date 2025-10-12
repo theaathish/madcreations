@@ -113,6 +113,7 @@ export const productsService = {
   // Create product (admin only)
   async createProduct(productData: Omit<Product, 'id'>): Promise<string> {
     try {
+      console.log('Firebase createProduct: Starting with data:', productData);
       const productsRef = collection(db, 'products');
       
       // Cast to any to access optional properties safely
@@ -128,7 +129,7 @@ export const productsService = {
         inStock: data.inStock ?? true,
         featured: data.featured ?? false,
         hidden: data.hidden ?? false,
-        ratings: data.ratings ?? 0,
+        ratings: data.ratings ?? 4.5,
         reviewCount: data.reviewCount ?? 0,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -147,11 +148,33 @@ export const productsService = {
       if (data.theme !== undefined && data.theme !== null && data.theme !== '') {
         cleanedData.theme = data.theme;
       }
+      
+      // Handle multi-size product fields
+      console.log('🔍 [Firebase] Checking multi-size fields:', {
+        'data.isMultiSize': data.isMultiSize,
+        'data.sizeOptions': data.sizeOptions,
+        'isMultiSize !== undefined': data.isMultiSize !== undefined,
+        'sizeOptions is array': Array.isArray(data.sizeOptions)
+      });
+      
+      if (data.isMultiSize !== undefined) {
+        cleanedData.isMultiSize = data.isMultiSize;
+        console.log('✅ [Firebase] Added isMultiSize to cleanedData:', cleanedData.isMultiSize);
+      }
+      if (data.sizeOptions !== undefined && Array.isArray(data.sizeOptions)) {
+        cleanedData.sizeOptions = data.sizeOptions;
+        console.log('✅ [Firebase] Added sizeOptions to cleanedData:', JSON.stringify(cleanedData.sizeOptions, null, 2));
+      } else {
+        console.log('⚠️ [Firebase] NOT adding sizeOptions - either undefined or not an array');
+      }
 
+      console.log('🔍 [Firebase] Final cleaned data to save:', JSON.stringify(cleanedData, null, 2));
       const docRef = await addDoc(productsRef, cleanedData);
+      console.log('✅ [Firebase] Successfully created with ID:', docRef.id);
       return docRef.id;
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error('Firebase createProduct: Error details:', error);
+      console.error('Firebase createProduct: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       throw error;
     }
   },
@@ -170,6 +193,11 @@ export const productsService = {
       Object.keys(productData).forEach(key => {
         const value = (productData as any)[key];
         if (value !== undefined) {
+          // Handle special cases for empty strings
+          if (typeof value === 'string' && value === '' && ['subcategory', 'size', 'theme'].includes(key)) {
+            // Don't add empty strings for these optional fields
+            return;
+          }
           cleanedData[key] = value;
         }
       });

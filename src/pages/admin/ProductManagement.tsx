@@ -61,6 +61,14 @@ const ProductManagement: React.FC = () => {
     try {
       setLoading(true);
       const productsData = await productsService.getAllProducts();
+      console.log('🔍 [ProductManagement] Loaded products from Firebase:', productsData.length);
+      
+      // Check for multi-size products
+      const multiSizeProducts = productsData.filter(p => p.isMultiSize);
+      console.log('🔍 [ProductManagement] Multi-size products found:', multiSizeProducts.length);
+      multiSizeProducts.forEach(p => {
+        console.log(`   - ${p.name}: isMultiSize=${p.isMultiSize}, has sizeOptions=${!!p.sizeOptions}, sizeOptions count=${p.sizeOptions?.length || 0}`);
+      });
       
       // Load images from Firebase for each product
       const productsWithImages = await Promise.all(
@@ -250,6 +258,11 @@ const ProductManagement: React.FC = () => {
       }
     }
 
+    // DEBUG: Log multi-size configuration
+    console.log('🔍 [ProductManagement] Product submission started');
+    console.log('🔍 [ProductManagement] formData.isMultiSize:', formData.isMultiSize);
+    console.log('🔍 [ProductManagement] sizeOptionsList:', JSON.stringify(sizeOptionsList, null, 2));
+
     setIsSubmitting(true);
 
     try {
@@ -306,6 +319,9 @@ const ProductManagement: React.FC = () => {
       // Add size options for multi-size products
       if (formData.isMultiSize) {
         newProduct.sizeOptions = sizeOptionsList;
+        console.log('🔍 [ProductManagement] Added sizeOptions to newProduct:', JSON.stringify(newProduct.sizeOptions, null, 2));
+      } else {
+        console.log('🔍 [ProductManagement] Skipping sizeOptions (isMultiSize is false)');
       }
       
       // Only add optional fields if they have values
@@ -323,8 +339,18 @@ const ProductManagement: React.FC = () => {
       }
 
       // Save to Firebase to get product ID (now safe because images are pre-validated)
+      console.log('🔍 [ProductManagement] Creating product with data:', JSON.stringify(newProduct, null, 2));
       const productId = await productsService.createProduct(newProduct);
-      console.log('Product created with ID:', productId);
+      console.log('✅ [ProductManagement] Product created with ID:', productId);
+      
+      // DEBUG: Verify product was saved with size options
+      const savedProduct = await productsService.getProduct(productId);
+      console.log('🔍 [ProductManagement] Verification - Product retrieved after creation:', {
+        id: savedProduct?.id,
+        isMultiSize: savedProduct?.isMultiSize,
+        sizeOptions: savedProduct?.sizeOptions,
+        hasSizeOptions: !!savedProduct?.sizeOptions
+      });
 
       // Upload images to tree structure if any (should not fail now)
       if (selectedImages.length > 0) {

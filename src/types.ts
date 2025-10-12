@@ -19,7 +19,14 @@ export interface Product {
   // Multi-size support
   sizeOptions?: SizeOption[];
   isMultiSize?: boolean;
-  // Add any other product fields you need
+  // Rating and review fields
+  ratings?: number;
+  reviewCount?: number;
+  // Additional optional fields
+  subcategory?: string;
+  size?: string;
+  theme?: string;
+  hidden?: boolean;
 }
 
 export interface CartItem {
