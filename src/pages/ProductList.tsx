@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { productsService, imageService } from '../services/firebaseService';
 import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
-import { FiFilter, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiFilter, FiX, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 // Removed unused types to clean up the code
 
@@ -20,8 +20,24 @@ const ProductList: React.FC = () => {
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const [showSplitPoster, setShowSplitPoster] = useState(false);
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
+  
+  // Extract category from URL path
+  const getCategoryFromPath = () => {
+    const path = location.pathname;
+    if (path === '/posters') return 'poster';
+    if (path === '/polaroids') return 'polaroid';
+    if (path === '/bundles') return 'bundle';
+    if (path === '/customizable') return 'customizable';
+    return null;
+  };
+
+  const category = getCategoryFromPath();
+  
   // Predefined filter options
-  const { sizes, themes, subcategories } = useMemo(() => {
+  const { sizes, themes } = useMemo(() => {
     // Predefined sizes
     const predefinedSizes = [
       'A4',
@@ -45,16 +61,9 @@ const ProductList: React.FC = () => {
       'Super Heroes'
     ];
     
-    // Extract unique subcategories from products
-    const subcategorySet = new Set<string>();
-    allProducts.forEach(product => {
-      if ((product as any).subcategory) subcategorySet.add((product as any).subcategory);
-    });
-    
     return {
       sizes: predefinedSizes,
-      themes: predefinedThemes,
-      subcategories: Array.from(subcategorySet).sort()
+      themes: predefinedThemes
     };
   }, [allProducts]);
   
@@ -97,18 +106,22 @@ const ProductList: React.FC = () => {
   const hasActiveFilters = selectedSizes.length > 0 || 
                          selectedThemes.length > 0 || 
                          selectedSubcategories.length > 0;
-
-  // Extract category from URL path
-  const getCategoryFromPath = () => {
-    const path = location.pathname;
-    if (path === '/posters') return 'poster';
-    if (path === '/polaroids') return 'polaroid';
-    if (path === '/bundles') return 'bundle';
-    if (path === '/customizable') return 'customizable';
-    return null;
-  };
-
-  const category = getCategoryFromPath();
+  
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedSizes, selectedThemes, selectedSubcategories, showSplitPoster, category]);
+  
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
 
   // Filter products based on selected filters
   useEffect(() => {
@@ -351,6 +364,7 @@ const ProductList: React.FC = () => {
               <div className="flex items-center space-x-4">
                 <p className="text-gray-600">
                   {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
+                  {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
                 </p>
                 {hasActiveFilters && (
                   <button
@@ -426,12 +440,7 @@ const ProductList: React.FC = () => {
                   onToggle={(value) => toggleFilter('theme', value)}
                 />
                 
-                <FilterSection
-                  title="Subcategory"
-                  options={subcategories}
-                  selected={selectedSubcategories}
-                  onToggle={(value) => toggleFilter('subcategory', value)}
-                />
+                {/* Subcategory filter hidden as per requirement */}
               </div>
             </div>
           </div>
@@ -470,11 +479,101 @@ const ProductList: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+              {currentProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded-md ${
+                    currentPage === 1
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-purple-600 hover:bg-purple-50'
+                  }`}
+                  aria-label="Previous page"
+                >
+                  <FiChevronLeft className="h-5 w-5" />
+                </button>
+                
+                <div className="flex items-center space-x-1">
+                  {/* First page */}
+                  {currentPage > 3 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        1
+                      </button>
+                      {currentPage > 4 && (
+                        <span className="px-2 text-gray-500">...</span>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Page numbers around current page */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      return (
+                        page === currentPage ||
+                        page === currentPage - 1 ||
+                        page === currentPage - 2 ||
+                        page === currentPage + 1 ||
+                        page === currentPage + 2
+                      );
+                    })
+                    .map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-2 rounded-md text-sm font-medium ${
+                          currentPage === page
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 2 && (
+                    <>
+                      {currentPage < totalPages - 3 && (
+                        <span className="px-2 text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded-md ${
+                    currentPage === totalPages
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-purple-600 hover:bg-purple-50'
+                  }`}
+                  aria-label="Next page"
+                >
+                  <FiChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+          </>
         )}
           </div>
         </div>
