@@ -50,19 +50,31 @@ const Cart: React.FC = () => {
     try {
       // Prepare order items - sanitize customizations to avoid nested entity errors
       const orderItems: OrderItem[] = state.items.map(item => {
-        // Sanitize customizations to prevent Firebase nested entity errors
-        const sanitizedCustomizations = item.customizations 
-          ? sanitizeForFirestore(item.customizations)
-          : {};
+        // Get image URL (first image from array)
+        const imageUrl = item.product.images?.[0] || '';
         
-        return {
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          imageUrl: item.product.images?.[0] || '',
-          customizations: sanitizedCustomizations
+        // If imageUrl is base64, replace with placeholder to avoid Firestore issues
+        const safeImageUrl = imageUrl.startsWith('data:image') 
+          ? 'custom-image-uploaded' 
+          : imageUrl;
+        
+        // Convert customizations to JSON string to avoid nested entity errors
+        // This is the safest approach for complex nested structures
+        const customizationsString = item.customizations 
+          ? JSON.stringify(item.customizations)
+          : '{}';
+        
+        // Create clean order item with flat structure
+        const orderItem = {
+          productId: String(item.product.id || ''),
+          name: String(item.product.name || ''),
+          price: Number(item.product.price) || 0,
+          quantity: Number(item.quantity) || 1,
+          imageUrl: String(safeImageUrl),
+          customizations: customizationsString
         };
+        
+        return orderItem;
       });
 
       // Create order object using the correct type for Firebase
@@ -88,10 +100,16 @@ const Cart: React.FC = () => {
         notes: `Order placed via ${shippingMethod} shipping.` || ''
       };
 
-      // Sanitize the entire order data to prevent nested entity errors
+      // Double-check: sanitize the entire order data structure
       const cleanOrderData = sanitizeForFirestore(orderData);
       
-      console.log('Submitting sanitized order:', cleanOrderData);
+      // Log for debugging (remove in production)
+      console.log('Order items count:', orderItems.length);
+      console.log('Sample order item:', orderItems[0]);
+      console.log('Submitting sanitized order:', {
+        ...cleanOrderData,
+        items: cleanOrderData.items?.length || 0
+      });
 
       // Import ordersService and create order
       const { ordersService } = await import('../services/firebaseService');

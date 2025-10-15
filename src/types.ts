@@ -41,7 +41,7 @@ export interface OrderItem {
   price: number;
   quantity: number;
   imageUrl: string;
-  customizations?: Record<string, any>;
+  customizations?: Record<string, any> | string; // Can be object or JSON string
 }
 
 export interface ShippingAddress {

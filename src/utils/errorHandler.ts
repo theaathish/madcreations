@@ -308,6 +308,19 @@ export const sanitizeForFirestore = (data: any): any => {
   }
   
   if (Array.isArray(data)) {
+    // Check if array contains base64 strings or complex objects
+    const hasBase64 = data.some(item => 
+      typeof item === 'string' && item.startsWith('data:image')
+    );
+    const hasComplexItems = data.some(item => 
+      typeof item === 'object' && item !== null
+    );
+    
+    // If array has base64 or complex items, convert to JSON string
+    if (hasBase64 || hasComplexItems) {
+      return JSON.stringify(data);
+    }
+    
     return data.map(item => sanitizeForFirestore(item));
   }
   
@@ -322,16 +335,26 @@ export const sanitizeForFirestore = (data: any): any => {
         continue;
       }
       
+      // Handle base64 strings directly
+      if (typeof value === 'string' && value.startsWith('data:image')) {
+        // Keep as string (Firestore can handle strings)
+        sanitized[key] = value;
+        continue;
+      }
+      
       // Convert complex objects to strings if necessary
       if (typeof value === 'object' && value !== null) {
         // Check if it's a simple object or array
         if (Array.isArray(value)) {
-          // For arrays, check if they contain simple values
+          // For arrays, check if they contain base64 or complex items
+          const hasBase64 = value.some(item => 
+            typeof item === 'string' && item.startsWith('data:image')
+          );
           const hasComplexItems = value.some(item => 
             typeof item === 'object' && item !== null && !Array.isArray(item)
           );
           
-          if (hasComplexItems) {
+          if (hasBase64 || hasComplexItems) {
             // Convert to JSON string for storage
             sanitized[key] = JSON.stringify(value);
           } else {
