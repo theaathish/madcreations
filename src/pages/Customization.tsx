@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Plus, Trash2, Music, Image as ImageIcon,
-  ShoppingCart
+  ShoppingCart, AlertCircle
 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { bulkOrderService } from '../services/bulkOrderService';
 import { useAuth } from '../contexts/AuthContext';
+import { compressImage, validateImageFile, getFileSize } from '../utils/imageCompression';
+import { handleImageUploadError } from '../utils/errorHandler';
 
 // Product Types
 type ProductType = 'poster' | 'polaroid' | null;
@@ -62,6 +64,11 @@ const Customization: React.FC = () => {
     name: string;
     whatsappAction: () => void;
   } | null>(null);
+  
+  // Image upload state
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [showHighResWarning, setShowHighResWarning] = useState(false);
 
   const handleEnquiryChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -202,12 +209,61 @@ const Customization: React.FC = () => {
   ];
   
   // Helper functions
-  const handleImageUpload = (file: File, callback: (url: string) => void) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      callback(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+  const handleImageUpload = async (file: File, callback: (url: string) => void) => {
+    try {
+      setImageError(null);
+      setIsCompressing(true);
+      
+      // Validate file
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        setImageError(validation.error || 'Invalid file');
+        setIsCompressing(false);
+        return;
+      }
+      
+      // Check file size - if > 2MB, show warning and compress
+      const isHighRes = file.size > 2 * 1024 * 1024;
+      
+      if (isHighRes) {
+        console.log(`High resolution image detected: ${getFileSize(file.size)}`);
+        setShowHighResWarning(true);
+      }
+      
+      // Compress image
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.85,
+        format: 'jpeg'
+      });
+      
+      console.log(`Image compressed from ${getFileSize(file.size)} to ${getFileSize(compressedFile.size)}`);
+      
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        callback(e.target?.result as string);
+        setIsCompressing(false);
+      };
+      reader.onerror = () => {
+        const error = handleImageUploadError(new Error('Failed to read file'), file.size);
+        setImageError(error.message);
+        setIsCompressing(false);
+      };
+      reader.readAsDataURL(compressedFile);
+      
+    } catch (error: any) {
+      console.error('Error handling image upload:', error);
+      const errorResponse = handleImageUploadError(error, file.size);
+      setImageError(errorResponse.message);
+      setIsCompressing(false);
+      
+      // If image is too large, show WhatsApp contact option
+      if (file.size > 5 * 1024 * 1024) {
+        setShowHighResWarning(true);
+      }
+    }
   };
   
   const addPolaroidItem = () => {
@@ -447,11 +503,45 @@ const Customization: React.FC = () => {
                   />
                   <label htmlFor="poster-image" className="cursor-pointer">
                     <span className="text-purple-600 hover:text-purple-700 font-medium">
-                      Click to upload image
+                      {isCompressing ? 'Compressing image...' : 'Click to upload image'}
                     </span>
                     <p className="text-sm text-gray-500 mt-1">PNG, JPG up to 10MB</p>
                   </label>
                 </div>
+                
+                {/* Error Message */}
+                {imageError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">{imageError}</p>
+                  </div>
+                )}
+                
+                {/* High Resolution Warning */}
+                {showHighResWarning && (
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start mb-2">
+                      <AlertCircle className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-yellow-800">High Resolution Image Detected</h4>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          Your image has been compressed for upload. For best quality custom prints with high-resolution images, 
+                          our admin will contact you via WhatsApp to assist with your order.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const phone = '919876543210'; // Replace with actual WhatsApp number
+                        const message = encodeURIComponent('Hi, I need help with a high-resolution custom poster order.');
+                        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                      }}
+                      className="mt-2 text-sm text-yellow-800 hover:text-yellow-900 font-medium underline"
+                    >
+                      Contact us on WhatsApp
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Size Selection */}

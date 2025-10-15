@@ -4,6 +4,7 @@ import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Truck, Lock } from 'lucid
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { OrderItem, CartItem } from '../types';
+import { sanitizeForFirestore, getFirebaseErrorMessage } from '../utils/errorHandler';
 
 const Cart: React.FC = () => {
   const { state, dispatch } = useCart();
@@ -33,11 +34,13 @@ const Cart: React.FC = () => {
   const handleCheckout = async () => {
     if (!user) {
       setError('Please log in to place an order.');
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
     if (!userProfile?.phoneNumber) {
       setError('Please complete your profile with a phone number before placing an order.');
+      setTimeout(() => navigate('/profile'), 2000);
       return;
     }
 
@@ -45,15 +48,22 @@ const Cart: React.FC = () => {
     setError(null);
     
     try {
-      // Prepare order items
-      const orderItems: OrderItem[] = state.items.map(item => ({
-        productId: item.product.id,
-        name: item.product.name,
-        price: item.product.price,
-        quantity: item.quantity,
-        imageUrl: item.product.images?.[0] || '',
-        customizations: item.customizations
-      }));
+      // Prepare order items - sanitize customizations to avoid nested entity errors
+      const orderItems: OrderItem[] = state.items.map(item => {
+        // Sanitize customizations to prevent Firebase nested entity errors
+        const sanitizedCustomizations = item.customizations 
+          ? sanitizeForFirestore(item.customizations)
+          : {};
+        
+        return {
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          imageUrl: item.product.images?.[0] || '',
+          customizations: sanitizedCustomizations
+        };
+      });
 
       // Create order object using the correct type for Firebase
       // Ensure no undefined values are passed to Firestore
@@ -62,14 +72,7 @@ const Cart: React.FC = () => {
         customerName: userProfile?.displayName || user.displayName || 'User',
         customerEmail: userProfile?.email || user.email || '',
         customerPhone: userProfile?.phoneNumber || '',
-        items: orderItems.map(item => ({
-          productId: item.productId || '',
-          name: item.name || '',
-          price: Number(item.price) || 0,
-          quantity: Number(item.quantity) || 1,
-          imageUrl: item.imageUrl || '',
-          customizations: item.customizations || {}
-        })),
+        items: orderItems,
         subtotal: Number(subtotal) || 0,
         shippingCost: Number(shippingCost) || 0,
         total: Number(total) || 0,
@@ -85,15 +88,10 @@ const Cart: React.FC = () => {
         notes: `Order placed via ${shippingMethod} shipping.` || ''
       };
 
-      // Validate order data before sending to Firebase
-      console.log('Submitting order:', orderData);
+      // Sanitize the entire order data to prevent nested entity errors
+      const cleanOrderData = sanitizeForFirestore(orderData);
       
-      // Remove any undefined values recursively
-      const cleanOrderData = JSON.parse(JSON.stringify(orderData, (_key, value) => {
-        return value === undefined ? null : value;
-      }));
-      
-      console.log('Cleaned order data:', cleanOrderData);
+      console.log('Submitting sanitized order:', cleanOrderData);
 
       // Import ordersService and create order
       const { ordersService } = await import('../services/firebaseService');
@@ -117,15 +115,9 @@ const Cart: React.FC = () => {
     } catch (error: any) {
       console.error('Error placing order:', error);
       
-      let errorMessage = 'There was an error placing your order. Please try again.';
-      
-      if (error.code === 'permission-denied') {
-        errorMessage = 'You do not have permission to perform this action.';
-      } else if (error.code === 'unavailable') {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      // Use centralized error handling
+      const errorResponse = getFirebaseErrorMessage(error);
+      const errorMessage = `${errorResponse.title}: ${errorResponse.message}${errorResponse.action ? ' ' + errorResponse.action : ''}`;
       
       setError(errorMessage);
     } finally {
