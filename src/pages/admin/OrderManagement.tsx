@@ -36,7 +36,32 @@ const OrderManagement: React.FC = () => {
     try {
       setLoading(true);
       const ordersData = await ordersService.getAllOrders();
-      setOrders(ordersData);
+      
+      // Normalize orders data - ensure items is always an array and parse customizations
+      const normalizedOrders = ordersData.map(order => {
+        // Ensure items is an array
+        let items = Array.isArray(order.items) ? order.items : [];
+        
+        // Parse customizations if it's a string
+        items = items.map(item => {
+          if (item.customizations && typeof item.customizations === 'string') {
+            try {
+              return {
+                ...item,
+                customizations: JSON.parse(item.customizations)
+              };
+            } catch (e) {
+              console.error('Failed to parse customizations:', e);
+              return { ...item, customizations: {} };
+            }
+          }
+          return item;
+        });
+        
+        return { ...order, items };
+      });
+      
+      setOrders(normalizedOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
     } finally {
@@ -626,12 +651,12 @@ MadCreations Team`;
                             📸 Images
                           </span>
                         )}
-                        {(order.items || []).some(item => item.customizations?.customText) && (
+                        {Array.isArray(order.items) && order.items.some(item => item.customizations?.customText) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             ✏️ Text
                           </span>
                         )}
-                        {(order.items || []).some(item => item.customizations?.spotifyUrl) && (
+                        {Array.isArray(order.items) && order.items.some(item => item.customizations?.spotifyUrl) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             🎵 Spotify
                           </span>
@@ -678,7 +703,7 @@ MadCreations Team`;
                         </button>
                         
                         {/* Show download buttons if order has custom images */}
-                        {order.items.some(item => item.customizations?.customImages && item.customizations.customImages.length > 0) && (
+                        {Array.isArray(order.items) && order.items.some(item => item.customizations?.customImages && item.customizations.customizations.length > 0) && (
                           <>
                             <button
                               onClick={() => downloadAllCustomImages(order)}
@@ -686,7 +711,7 @@ MadCreations Team`;
                               title="Download all custom images from this order"
                             >
                               <Download className="h-4 w-4 mr-1" />
-                              All ({order.items.reduce((total, item) => total + (item.customizations?.customImages?.length || 0), 0)})
+                              All ({Array.isArray(order.items) ? order.items.reduce((total, item) => total + (item.customizations?.customImages?.length || 0), 0) : 0})
                             </button>
                             <button
                               onClick={() => {
