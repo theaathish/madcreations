@@ -703,7 +703,7 @@ MadCreations Team`;
                         </button>
                         
                         {/* Show download buttons if order has custom images */}
-                        {Array.isArray(order.items) && order.items.some(item => item.customizations?.customImages && item.customizations.customizations.length > 0) && (
+                        {Array.isArray(order.items) && order.items.some(item => item.customizations?.customImages && Array.isArray(item.customizations.customImages) && item.customizations.customImages.length > 0) && (
                           <>
                             <button
                               onClick={() => downloadAllCustomImages(order)}
