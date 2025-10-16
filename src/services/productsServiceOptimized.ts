@@ -14,7 +14,7 @@ import {
   DocumentSnapshot,
   QueryConstraint
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../firebase';
 import { Product } from '../types';
 
 // In-memory cache

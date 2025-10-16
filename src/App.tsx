@@ -9,7 +9,7 @@ import Footer from './components/Footer';
 
 // Lazy load pages for better code splitting
 const Home = lazy(() => import('./pages/Home'));
-const ProductList = lazy(() => import('./pages/ProductList'));
+const ProductList = lazy(() => import('./pages/ProductListOptimized'));
 const Cart = lazy(() => import('./pages/Cart'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
