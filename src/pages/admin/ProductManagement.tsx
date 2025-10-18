@@ -412,6 +412,39 @@ const ProductManagement: React.FC = () => {
     }
   };
 
+  const handleUnhideAllProducts = async () => {
+    const hiddenProducts = products.filter(p => (p as any).hidden);
+    
+    if (hiddenProducts.length === 0) {
+      alert('No hidden products found!');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to unhide all ${hiddenProducts.length} hidden products? They will be visible to customers.`)) {
+      try {
+        setLoading(true);
+        console.log(`🔓 Unhiding ${hiddenProducts.length} products...`);
+        
+        // Update all hidden products
+        const updatePromises = hiddenProducts.map(product => 
+          productsService.updateProduct(product.id, { hidden: false } as any)
+        );
+        
+        await Promise.all(updatePromises);
+        
+        // Reload products
+        await loadProducts();
+        
+        alert(`✅ Successfully unhid ${hiddenProducts.length} products! All products are now visible.`);
+      } catch (error) {
+        console.error('Error unhiding products:', error);
+        alert('Failed to unhide products. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleEditProduct = async (product: Product) => {
     setEditingProduct(product);
     setFormData({
@@ -664,13 +697,23 @@ const ProductManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Product Management</h1>
           <p className="text-gray-600 mt-2">Manage your inventory and product listings</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="mt-4 sm:mt-0 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Add Product
-        </button>
+        <div className="flex gap-3 mt-4 sm:mt-0">
+          <button
+            onClick={handleUnhideAllProducts}
+            className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center"
+            title="Make all hidden products visible to customers"
+          >
+            <Eye className="h-5 w-5 mr-2" />
+            Unhide All ({products.filter(p => (p as any).hidden).length})
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

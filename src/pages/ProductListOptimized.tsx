@@ -162,13 +162,13 @@ const ProductListOptimized: React.FC = () => {
           // Load both poster and split_poster in parallel
           fetchedProducts = await optimizedProductsService.getProductsByCategories(
             ['poster', 'split_poster'],
-            40 // Load more initially for better UX
+            500 // Load all products
           );
         } else if (category) {
           // Load specific category with pagination
           const result = await optimizedProductsService.getProducts({
             category,
-            pageSize: 40,
+            pageSize: 500, // Load all products
             useCache: true
           });
           fetchedProducts = result.products;
@@ -176,7 +176,7 @@ const ProductListOptimized: React.FC = () => {
         } else {
           // Load all products (first page only)
           const result = await optimizedProductsService.getProducts({
-            pageSize: 40,
+            pageSize: 500, // Load all products
             useCache: true
           });
           fetchedProducts = result.products;
