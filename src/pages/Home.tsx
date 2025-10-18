@@ -157,28 +157,28 @@ const Home: React.FC = () => {
     {
       name: 'Posters',
       description: 'High-quality posters in various sizes',
-      image: 'https://images.pexels.com/photos/3945313/pexels-photo-3945313.jpeg',
+      image: '/assets/poster.png',
       link: '/posters',
       count: '500+'
     },
     {
       name: 'Polaroids',
       description: 'Vintage-style polaroid prints',
-      image: 'https://images.pexels.com/photos/1587927/pexels-photo-1587927.jpeg',
+      image: '/assets/pol.png',
       link: '/polaroids',
       count: '300+'
     },
     {
       name: 'Bundles',
       description: 'Great value combo packs',
-      image: 'https://images.pexels.com/photos/6291574/pexels-photo-6291574.jpeg',
+      image: '/assets/bu.png',
       link: '/bundles',
       count: '50+'
     },
     {
       name: 'Customizable',
       description: 'Create your own designs',
-      image: 'https://images.pexels.com/photos/7181191/pexels-photo-7181191.jpeg',
+      image: '/assets/cus.png',
       link: '/customizable',
       count: 'Unlimited'
     }
