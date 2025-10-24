@@ -532,7 +532,7 @@ const Customization: React.FC = () => {
                     </div>
                     <button
                       onClick={() => {
-                        const phone = '919876543210'; // Replace with actual WhatsApp number
+                        const phone = '918667009306';
                         const message = encodeURIComponent('Hi, I need help with a high-resolution custom poster order.');
                         window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
                       }}

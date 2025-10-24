@@ -11,11 +11,8 @@
 
 ## 🚀 Deploy to Production
 
-### Step 1: Update WhatsApp Number
-Edit `/src/pages/Customization.tsx` line 535:
-```typescript
-const phone = '919876543210'; // Replace with your actual WhatsApp number
-```
+### Step 1: WhatsApp Number
+WhatsApp number is already configured as `918667009306` in `/src/pages/Customization.tsx`.
 
 ### Step 2: Build
 ```bash
