@@ -73,7 +73,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAdminStatus = async (user: User) => {
     try {
       // Check by email first (fallback method)
-      const adminEmails = ['kartikbaskaran2@gmail.com', 'admin@madcreations.com'];
+      const adminEmails = [
+        'admin1@madcreations.site',
+        'admin@madcreations.site',
+        'kartikbaskaran2@gmail.com'
+      ];
       const isAdminByEmail = adminEmails.includes(user.email || '');
       
       // Check if user exists in admins collection

@@ -29,10 +29,19 @@ const ProductManagement: React.FC = () => {
     'Super Heroes'
   ];
 
+  // Default product description
+  const defaultDescription = `• Premium Poster Quality – Every poster is printed on thick, high-grade matte paper with rich colors and sharp details that bring your walls to life.
+• Fade-Resistant Prints – Long-lasting and durable prints that stay bright and beautiful for years.
+• Customizable Options – Personalize your posters to make your walls truly yours.
+• Dedicated Customer Support – Friendly and quick responses to all your queries — we're here to help every step of the way.
+• Fast & Reliable Delivery – Get your orders delivered within 3–5 business days, safely packed and damage-free.
+• Customer Satisfaction Guaranteed – We value your happiness — if you're not satisfied, we'll make it right.
+• Ready-to-Stick Convenience – Each poster comes with high-quality sticky dots at the back for easy, damage-free wall mounting — no frames or nails needed!`;
+
   // Form state for adding products
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
+    description: defaultDescription,
     price: '',
     originalPrice: '',
     category: 'poster',
@@ -221,7 +230,7 @@ const ProductManagement: React.FC = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      description: '',
+      description: defaultDescription,
       price: '',
       originalPrice: '',
       category: 'poster',

@@ -98,17 +98,53 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </h3>
 
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <span className="text-xl font-bold text-purple-600">₹{product.price}</span>
-              {product.originalPrice && (
-                <span className="text-sm text-gray-500 line-through">₹{product.originalPrice}</span>
+            <div className="flex items-baseline space-x-2">
+              {product.isMultiSize && product.sizeOptions && product.sizeOptions.length > 0 ? (
+                // For multi-size products, show the base size price by default
+                (() => {
+                  const baseSizeOption = product.sizeOptions[0];
+                  const originalPrice = baseSizeOption.originalPrice ?? 0;
+                  const hasDiscount = originalPrice > baseSizeOption.price;
+                  
+                  return (
+                    <>
+                      <span className="text-xl font-bold text-purple-600">₹{baseSizeOption.price}</span>
+                      {hasDiscount && originalPrice > 0 && (
+                        <>
+                          <span className="text-sm text-gray-500 line-through">₹{originalPrice}</span>
+                          <span className="text-xs font-semibold text-red-600">
+                            {Math.round(((originalPrice - baseSizeOption.price) / originalPrice) * 100)}% OFF
+                          </span>
+                        </>
+                      )}
+                    </>
+                  );
+                })()
+              ) : product.originalPrice && product.originalPrice > product.price ? (
+                // For single products with discount
+                <>
+                  <span className="text-xl font-bold text-purple-600">₹{product.price}</span>
+                  <span className="text-sm text-gray-500 line-through">₹{product.originalPrice}</span>
+                  <span className="text-xs font-semibold text-red-600">
+                    {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                  </span>
+                </>
+              ) : (
+                // For single products without discount
+                <span className="text-xl font-bold text-purple-600">
+                  ₹{product.price}
+                </span>
               )}
             </div>
-            {product.size && (
+            {product.isMultiSize && product.sizeOptions && product.sizeOptions.length > 0 ? (
+              <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                {product.sizeOptions[0].size}
+              </span>
+            ) : product.size ? (
               <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
                 {product.size}
               </span>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between mt-auto">

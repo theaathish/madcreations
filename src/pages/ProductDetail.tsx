@@ -402,13 +402,25 @@ const ProductDetail: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
-                <span className="text-3xl font-bold text-purple-600">₹{getCurrentPrice()}</span>
-                {getCurrentOriginalPrice() && (
-                  <span className="text-xl text-gray-500 line-through">₹{getCurrentOriginalPrice()}</span>
-                )}
-                {getCurrentOriginalPrice() && (
-                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm font-semibold">
-                    {Math.round(((getCurrentOriginalPrice()! - getCurrentPrice()) / getCurrentOriginalPrice()!) * 100)}% OFF
+                {product.originalPrice && product.originalPrice > product.price ? (
+                  <div className="flex items-baseline space-x-2">
+                    <span className="text-3xl font-bold text-purple-600">₹{product.price}</span>
+                    <span className="text-xl text-gray-500 line-through">₹{product.originalPrice}</span>
+                    <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-sm font-semibold">
+                      {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                    </span>
+                  </div>
+                ) : product.isMultiSize && selectedSizeOption && selectedSizeOption.originalPrice && selectedSizeOption.originalPrice > selectedSizeOption.price ? (
+                  <div className="flex items-baseline space-x-2">
+                    <span className="text-3xl font-bold text-purple-600">₹{selectedSizeOption.price}</span>
+                    <span className="text-xl text-gray-500 line-through">₹{selectedSizeOption.originalPrice}</span>
+                    <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-sm font-semibold">
+                      {Math.round(((selectedSizeOption.originalPrice - selectedSizeOption.price) / selectedSizeOption.originalPrice) * 100)}% OFF
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-3xl font-bold text-purple-600">
+                    ₹{product.isMultiSize && selectedSizeOption ? selectedSizeOption.price : product.price}
                   </span>
                 )}
               </div>
