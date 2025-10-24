@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Truck, Shield, HeadphonesIcon } from 'lucide-react';
+import { ArrowRight, Star, Truck, Shield, HeadphonesIcon, Image, Camera, Package, Palette } from 'lucide-react';
 import { productsService, imageService } from '../services/firebaseService';
 import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
@@ -157,28 +157,32 @@ const Home: React.FC = () => {
     {
       name: 'Posters',
       description: 'High-quality posters in various sizes',
-      image: '/assets/poster.png',
+      icon: Image,
+      gradient: 'from-purple-500 to-pink-500',
       link: '/posters',
       count: '500+'
     },
     {
       name: 'Polaroids',
       description: 'Vintage-style polaroid prints',
-      image: '/assets/pol.png',
+      icon: Camera,
+      gradient: 'from-blue-500 to-cyan-500',
       link: '/polaroids',
       count: '300+'
     },
     {
       name: 'Bundles',
       description: 'Great value combo packs',
-      image: '/assets/bu.png',
+      icon: Package,
+      gradient: 'from-orange-500 to-red-500',
       link: '/bundles',
       count: '50+'
     },
     {
       name: 'Customizable',
       description: 'Create your own designs',
-      image: '/assets/cus.png',
+      icon: Palette,
+      gradient: 'from-green-500 to-teal-500',
       link: '/customizable',
       count: 'Unlimited'
     }
@@ -253,29 +257,28 @@ const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {categories.map((category, index) => (
-              <Link
-                key={index}
-                to={category.link}
-                className="group relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-              >
-                <div className="aspect-w-4 aspect-h-5">
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                  <h3 className="text-xl font-bold mb-2">{category.name}</h3>
-                  <p className="text-sm opacity-90 mb-2">{category.description}</p>
-                  <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
-                    {category.count} items
-                  </span>
-                </div>
-              </Link>
-            ))}
+            {categories.map((category, index) => {
+              const IconComponent = category.icon;
+              return (
+                <Link
+                  key={index}
+                  to={category.link}
+                  className="group relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  <div className={`h-64 bg-gradient-to-br ${category.gradient} flex items-center justify-center group-hover:scale-110 transition-transform duration-500`}>
+                    <IconComponent className="w-24 h-24 text-white opacity-90" strokeWidth={1.5} />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                    <h3 className="text-xl font-bold mb-2">{category.name}</h3>
+                    <p className="text-sm opacity-90 mb-2">{category.description}</p>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
+                      {category.count} items
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
