@@ -17,18 +17,49 @@ const Cart: React.FC = () => {
   // Calculate cart totals and check minimum order quantity
   
   // Check minimum order requirements by category
-  const polaroidItems = state.items.filter(item => item.product.category === 'polaroid');
-  const otherItems = state.items.filter(item => item.product.category !== 'polaroid');
+  const posterItems = state.items.filter(item => 
+    item.product.category === 'poster' || item.product.category === 'customizable'
+  );
+  const splitPosterItems = state.items.filter(item => item.product.category === 'split_poster');
+  const a4PosterItems = state.items.filter(item => 
+    (item.product.category === 'poster' || item.product.category === 'customizable') && 
+    (item.customizations?.size === 'A4' || item.product.size === 'A4')
+  );
   
-  const polaroidQuantity = polaroidItems.reduce((sum, item) => sum + item.quantity, 0);
-  const otherQuantity = otherItems.reduce((sum, item) => sum + item.quantity, 0);
+  const posterQuantity = posterItems.reduce((sum, item) => sum + item.quantity, 0);
+  const splitPosterQuantity = splitPosterItems.reduce((sum, item) => sum + item.quantity, 0);
+  const a4PosterQuantity = a4PosterItems.reduce((sum, item) => sum + item.quantity, 0);
   
-  // Polaroids need minimum 10, others need minimum 1 (if any items exist)
-  const polaroidMeetsMinimum = polaroidItems.length === 0 || polaroidQuantity >= 10;
-  const otherMeetsMinimum = otherItems.length === 0 || otherQuantity >= 1;
-  const meetsMinimumOrder = polaroidMeetsMinimum && otherMeetsMinimum;
+  // Check minimum order requirements:
+  // 1. Regular/Custom posters: minimum 3 pieces
+  // 2. Split posters: need at least 1 split poster AND 1 A4 poster
+  const posterMeetsMinimum = posterItems.length === 0 || posterQuantity >= 3;
+  const splitPosterMeetsMinimum = splitPosterItems.length === 0 || 
+    (splitPosterQuantity >= 1 && a4PosterQuantity >= 1);
+  
+  const meetsMinimumOrder = posterMeetsMinimum && splitPosterMeetsMinimum;
+  
+  // Generate minimum order message
+  const getMinimumOrderMessage = () => {
+    const messages = [];
+    
+    if (posterItems.length > 0 && posterQuantity < 3) {
+      messages.push(`Add ${3 - posterQuantity} more poster(s) (minimum 3 required)`);
+    }
+    
+    if (splitPosterItems.length > 0) {
+      if (splitPosterQuantity < 1) {
+        messages.push('Add at least 1 Split Poster');
+      }
+      if (a4PosterQuantity < 1) {
+        messages.push('Add at least 1 A4 Poster');
+      }
+    }
+    
+    return messages.join(' • ');
+  };
   const subtotal = state.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const shippingCost = shippingMethod === 'express' ? 99 : 0;
+  const shippingCost = shippingMethod === 'express' ? 100 : 50;
   const total = subtotal + shippingCost;
 
   const handleCheckout = async () => {
@@ -41,6 +72,12 @@ const Cart: React.FC = () => {
     if (!userProfile?.phoneNumber) {
       setError('Please complete your profile with a phone number before placing an order.');
       setTimeout(() => navigate('/profile'), 2000);
+      return;
+    }
+
+    // Validate minimum order requirements before processing
+    if (!meetsMinimumOrder) {
+      setError(`Minimum order quantity not met. ${getMinimumOrderMessage()}`);
       return;
     }
 
@@ -144,10 +181,8 @@ const Cart: React.FC = () => {
   };
 
   const updateQuantity = (productId: string, quantity: number, item: CartItem) => {
-    
-    // Set minimum quantity based on category
-    const minQuantity = item.product.category === 'polaroid' ? 10 : 1;
-    const finalQuantity = Math.max(minQuantity, quantity);
+    // Set minimum quantity to 1 for all items
+    const finalQuantity = Math.max(1, quantity);
     
     dispatch({
       type: 'UPDATE_QUANTITY',
@@ -250,39 +285,27 @@ const Cart: React.FC = () => {
                         
                         {/* Quantity Selector */}
                         <div className="mt-4 flex items-center">
-                          {(() => {
-                            const minQuantity = item.product.category === 'polaroid' ? 10 : 1;
-                            const isAtMinimum = item.quantity <= minQuantity;
-                            
-                            return (
-                              <>
-                                <button
-                                  onClick={() => updateQuantity(item.product.id, item.quantity - 1, item)}
-                                  className={`p-1 ${isAtMinimum ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}
-                                  disabled={isAtMinimum}
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <span className="mx-2 text-gray-700">{item.quantity}</span>
-                                <button
-                                  onClick={() => updateQuantity(item.product.id, item.quantity + 1, item)}
-                                  className="p-1 text-gray-500 hover:text-gray-700"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                                {item.product.category === 'polaroid' && (
-                                  <span className="ml-2 text-xs text-gray-500">(min 10)</span>
-                                )}
-                                <button
-                                  onClick={() => removeItem(item.product.id, item.customizations?.size)}
-                                  className="ml-4 text-red-600 hover:text-red-700 text-sm flex items-center"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1" />
-                                  Remove
-                                </button>
-                              </>
-                            );
-                          })()}
+                          <button
+                            onClick={() => updateQuantity(item.product.id, item.quantity - 1, item)}
+                            className={`p-1 ${item.quantity <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}
+                            disabled={item.quantity <= 1}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="mx-2 text-gray-700">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.product.id, item.quantity + 1, item)}
+                            className="p-1 text-gray-500 hover:text-gray-700"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => removeItem(item.product.id, item.customizations?.size)}
+                            className="ml-4 text-red-600 hover:text-red-700 text-sm flex items-center"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remove
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -307,7 +330,7 @@ const Cart: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Shipping</span>
                     <span className="font-medium">
-                      {shippingMethod === 'express' ? 'Express (₹99)' : 'Free'}
+                      {shippingMethod === 'express' ? 'Express (₹100)' : 'Normal (₹50)'}
                     </span>
                   </div>
                   
@@ -319,7 +342,7 @@ const Cart: React.FC = () => {
                         checked={shippingMethod === 'standard'}
                         onChange={() => setShippingMethod('standard')}
                       />
-                      <span className="ml-2 text-gray-700">Standard (5-7 days) - Free</span>
+                      <span className="ml-2 text-gray-700">Normal Delivery (5-7 days) - ₹50</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -328,7 +351,7 @@ const Cart: React.FC = () => {
                         checked={shippingMethod === 'express'}
                         onChange={() => setShippingMethod('express')}
                       />
-                      <span className="ml-2 text-gray-700">Express (2-3 days) - ₹99</span>
+                      <span className="ml-2 text-gray-700">Express Delivery (2-3 days) - ₹100</span>
                     </label>
                   </div>
                 </div>
@@ -346,25 +369,12 @@ const Cart: React.FC = () => {
                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 rounded-md z-10">
                     <div className="text-center p-4">
                       <Lock className="h-6 w-6 mx-auto text-gray-500 mb-2" />
-                      {!polaroidMeetsMinimum && !otherMeetsMinimum ? (
-                        <div>
-                          <p className="text-sm text-gray-700">Minimum order requirements not met</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Polaroids: {10 - polaroidQuantity} more needed (min 10) • 
-                            Other items: {1 - otherQuantity} more needed (min 1)
-                          </p>
-                        </div>
-                      ) : !polaroidMeetsMinimum ? (
-                        <div>
-                          <p className="text-sm text-gray-700">Add {10 - polaroidQuantity} more Polaroids to unlock checkout</p>
-                          <p className="text-xs text-gray-500 mt-1">Minimum 10 Polaroids required</p>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-sm text-gray-700">Add {1 - otherQuantity} more item to unlock checkout</p>
-                          <p className="text-xs text-gray-500 mt-1">Minimum 1 item required for non-Polaroid categories</p>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-sm text-gray-700 font-medium">Minimum order requirements not met</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {getMinimumOrderMessage()}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <button

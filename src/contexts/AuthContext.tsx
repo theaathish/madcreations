@@ -31,7 +31,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, displayName: string) => Promise<void>;
+  signup: (email: string, password: string, displayName: string, additionalData?: Partial<UserProfile>) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (profileData: Partial<UserProfile>) => Promise<void>;
@@ -140,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (email: string, password: string, displayName: string) => {
+  const signup = async (email: string, password: string, displayName: string, additionalData?: Partial<UserProfile>) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -148,11 +148,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update the user's display name
       await updateProfile(user, { displayName });
 
-      // Create user profile in Firestore
+      // Create user profile in Firestore with all signup data
       const userProfile: UserProfile = {
         uid: user.uid,
         email: user.email!,
         displayName,
+        phoneNumber: additionalData?.phoneNumber || '',
+        address: additionalData?.address || '',
+        city: additionalData?.city || '',
+        state: additionalData?.state || '',
+        pincode: additionalData?.pincode || '',
         createdAt: new Date(),
         updatedAt: new Date(),
       };

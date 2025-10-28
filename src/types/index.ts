@@ -37,11 +37,12 @@ export interface Order {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  items: CartItem[];
+  items: OrderItem[];
   subtotal: number;
   shippingCost: number;
   total: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  paymentStatus?: 'pending' | 'paid' | 'failed';
   orderDate: string;
   createdAt?: any;
   updatedAt?: any;
@@ -50,4 +51,13 @@ export interface Order {
   notes?: string;
   deliveryLink?: string;
   trackingNumber?: string;
+}
+
+export interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  imageUrl: string;
+  customizations: string; // JSON string to avoid nested entity errors
 }

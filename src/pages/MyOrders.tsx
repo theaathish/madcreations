@@ -32,7 +32,36 @@ const MyOrders: React.FC = () => {
       console.log('Fetching orders for user:', user.uid);
       const userOrders = await ordersService.getUserOrders(user.uid);
       console.log('Received orders:', userOrders);
-      setOrders(userOrders);
+      
+      // Normalize orders to handle both old and new formats
+      const normalizedOrders = userOrders.map(order => {
+        // Ensure items is always an array
+        if (!Array.isArray(order.items)) {
+          console.warn('Order items is not an array:', order.id, order.items);
+          return { ...order, items: [] };
+        }
+        
+        // Handle items that might have customizations as strings (new format)
+        const normalizedItems = order.items.map((item: any) => {
+          // If item has customizations as string, try to parse it
+          if (item.customizations && typeof item.customizations === 'string') {
+            try {
+              return {
+                ...item,
+                customizations: JSON.parse(item.customizations)
+              };
+            } catch (e) {
+              console.warn('Failed to parse customizations for item:', item);
+              return { ...item, customizations: {} };
+            }
+          }
+          return item;
+        });
+        
+        return { ...order, items: normalizedItems };
+      });
+      
+      setOrders(normalizedOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
     } finally {
@@ -167,7 +196,7 @@ const MyOrders: React.FC = () => {
                       <span className="font-medium">Order Date:</span> {formatDate(order.createdAt || order.orderDate)}
                     </div>
                     <div>
-                      <span className="font-medium">Items:</span> {order.items?.length || 0}
+                      <span className="font-medium">Items:</span> {Array.isArray(order.items) ? order.items.length : 0}
                     </div>
                     <div>
                       <span className="font-medium">Total:</span> ₹{(order.total || 0).toLocaleString()}
@@ -230,10 +259,10 @@ const MyOrders: React.FC = () => {
                   </div>
 
                   {/* Order Items Preview */}
-                  {order.items && order.items.length > 0 && (
+                  {Array.isArray(order.items) && order.items.length > 0 && (
                     <div className="flex items-center space-x-4">
                       {order.items.slice(0, 3).map((item: any, index: number) => (
-                      <img
+                        <img
                           key={index}
                           src={item.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
                           alt={item.name || 'Product'}
@@ -247,7 +276,7 @@ const MyOrders: React.FC = () => {
                       )}
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">
-                          {(order.items[0] as any)?.name || 'Product'}
+                          {order.items[0]?.name || 'Product'}
                           {order.items.length > 1 && ` and ${order.items.length - 1} more item${order.items.length > 2 ? 's' : ''}`}
                         </p>
                       </div>
@@ -262,9 +291,9 @@ const MyOrders: React.FC = () => {
                       <div>
                         <h4 className="font-medium text-gray-900 mb-3">Order Items</h4>
                         <div className="space-y-3">
-                          {(order.items || []).map((item: any, index: number) => (
+                          {Array.isArray(order.items) ? order.items.map((item: any, index: number) => (
                             <div key={index} className="flex items-center space-x-3 p-3 bg-white rounded-lg">
-                            <img
+                              <img
                                 src={item.imageUrl || 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400'}
                                 alt={item.name || 'Product'}
                                 className="w-16 h-16 object-cover rounded-lg"
@@ -275,7 +304,11 @@ const MyOrders: React.FC = () => {
                                 <p className="text-sm font-medium text-purple-600">₹{(item.quantity || 1) * (item.price || 0)}</p>
                               </div>
                             </div>
-                          ))}
+                          )) : (
+                            <div className="text-center text-gray-500 py-4">
+                              No items found in this order
+                            </div>
+                          )}
                         </div>
                       </div>
 

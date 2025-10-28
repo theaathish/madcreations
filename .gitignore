@@ -22,4 +22,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+env.txt
+
+# Build artifacts and temporary files
+*.timestamp-*.mjs
+*.tsbuildinfo
+
+# Documentation (keep only main README)
+*_FIX.md
+*_GUIDE.md
+*_SETUP.md
+DEBUG_*.md
+QUICK_*.md
+
+# Test and development scripts
+addTest*.js
+addSample*.js
+add*Order*.js

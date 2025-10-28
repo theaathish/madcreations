@@ -46,7 +46,14 @@ const Signup: React.FC = () => {
     setLoading(true);
 
     try {
-      await signup(formData.email, formData.password, formData.displayName);
+      // Pass all form data to signup function
+      await signup(formData.email, formData.password, formData.displayName, {
+        phoneNumber: formData.phoneNumber,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+      });
       navigate('/');
     } catch (error: any) {
       setError(error.message);

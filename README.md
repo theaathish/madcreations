@@ -130,6 +130,12 @@ src/
 - Profile picture integration
 - Account settings
 
+### Admin Access
+- **Admin Email**: admin@madcreations.com
+- **Admin Password**: MadCreations@2024
+- **Admin Panel**: `/admin` route after login
+- **Create Additional Admins**: `npm run create-admin`
+
 ## 🛍 Product Management
 
 ### Product Features

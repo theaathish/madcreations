@@ -112,7 +112,7 @@ const Customization: React.FC = () => {
   const [posterConfig, setPosterConfig] = useState<PosterConfig>({
     image: null,
     size: 'A4', // Add default size
-    quantity: 1
+    quantity: 3 // Minimum 3 posters required
   });
   
   // Polaroid Configuration
@@ -572,8 +572,9 @@ const Customization: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quantity</h3>
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={() => setPosterConfig({ ...posterConfig, quantity: Math.max(1, posterConfig.quantity - 1) })}
-                    className="p-2 border border-gray-300 rounded hover:bg-gray-50"
+                    onClick={() => setPosterConfig({ ...posterConfig, quantity: Math.max(3, posterConfig.quantity - 1) })}
+                    className={`p-2 border border-gray-300 rounded hover:bg-gray-50 ${posterConfig.quantity <= 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={posterConfig.quantity <= 3}
                   >
                     -
                   </button>
@@ -585,6 +586,7 @@ const Customization: React.FC = () => {
                     +
                   </button>
                 </div>
+                <p className="text-sm text-gray-500 mt-2">Minimum 3 posters required for checkout</p>
               </div>
 
               {/* Add to Cart */}

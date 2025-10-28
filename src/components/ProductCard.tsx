@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Lock } from 'lucide-react';
 import { Product } from '../types';
 import { useCart } from '../contexts/CartContext';
 
@@ -8,16 +8,85 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { dispatch } = useCart();
+  const { state, dispatch } = useCart();
   const [imageError, setImageError] = useState(false);
   const [hasTriedFallback, setHasTriedFallback] = useState(false);
 
+  // Check if split poster requirements are met
+  const checkSplitPosterRequirements = () => {
+    if (product.category !== 'split_poster') return { canAdd: true, message: '' };
+    
+    const splitPosterItems = state.items.filter(item => item.product.category === 'split_poster');
+    const a4PosterItems = state.items.filter(item => 
+      (item.product.category === 'poster' || item.product.category === 'customizable') && 
+      (item.customizations?.size === 'A4' || item.product.size === 'A4')
+    );
+    
+    const hasSplitPoster = splitPosterItems.length > 0;
+    const hasA4Poster = a4PosterItems.length > 0;
+    
+    if (!hasSplitPoster && !hasA4Poster) {
+      return { canAdd: false, message: 'Please add 1 Split Poster and 1 A4 Poster to continue.' };
+    } else if (!hasA4Poster) {
+      return { canAdd: false, message: 'Please add 1 A4 Poster to enable Split Poster checkout.' };
+    }
+    
+    return { canAdd: true, message: '' };
+  };
+
+  // Check if poster minimum quantity is met
+  const checkPosterMinimum = () => {
+    if (product.category !== 'poster' && product.category !== 'customizable') return { canAdd: true, message: '' };
+    
+    const posterItems = state.items.filter(item => 
+      item.product.category === 'poster' || item.product.category === 'customizable'
+    );
+    const posterQuantity = posterItems.reduce((sum, item) => sum + item.quantity, 0);
+    
+    // For the first poster, allow adding to cart but show message about minimum
+    if (posterQuantity === 0) {
+      return { canAdd: true, message: 'Minimum 3 posters required for checkout.' };
+    }
+    
+    return { canAdd: true, message: '' };
+  };
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    
+    // Check requirements for split posters
+    const splitRequirement = checkSplitPosterRequirements();
+    if (!splitRequirement.canAdd) {
+      alert(splitRequirement.message);
+      return;
+    }
+    
+    // Add to cart with appropriate quantity
+    let quantity = 1;
+    
+    // For posters and custom products, suggest minimum quantity
+    if (product.category === 'poster' || product.category === 'customizable') {
+      const posterItems = state.items.filter(item => 
+        item.product.category === 'poster' || item.product.category === 'customizable'
+      );
+      const currentPosterQuantity = posterItems.reduce((sum, item) => sum + item.quantity, 0);
+      
+      // If this is the first poster item, add 3 to meet minimum
+      if (currentPosterQuantity === 0) {
+        quantity = 3;
+      }
+    }
+    
     dispatch({
       type: 'ADD_ITEM',
-      payload: { product, quantity: 1 }
+      payload: { product, quantity }
     });
+    
+    // Show success message with any additional info
+    const posterRequirement = checkPosterMinimum();
+    if (posterRequirement.message) {
+      setTimeout(() => alert(`Added to cart! ${posterRequirement.message}`), 100);
+    }
   };
 
   const getImageSrc = () => {
@@ -156,17 +225,40 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               {product.inStock ? '✓ In Stock' : '✗ Out of Stock'}
             </span>
             
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAddToCart(e);
-              }}
-              disabled={!product.inStock}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span>Add to Cart</span>
-            </button>
+            {(() => {
+              const splitRequirement = checkSplitPosterRequirements();
+              const isDisabled = !product.inStock || !splitRequirement.canAdd;
+              
+              return (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(e);
+                  }}
+                  disabled={isDisabled}
+                  className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                    isDisabled
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                  title={!splitRequirement.canAdd ? splitRequirement.message : ''}
+                >
+                  {!splitRequirement.canAdd ? (
+                    <Lock className="h-4 w-4" />
+                  ) : (
+                    <ShoppingCart className="h-4 w-4" />
+                  )}
+                  <span>
+                    {!product.inStock 
+                      ? 'Out of Stock' 
+                      : !splitRequirement.canAdd 
+                        ? 'Locked' 
+                        : 'Add to Cart'
+                    }
+                  </span>
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
