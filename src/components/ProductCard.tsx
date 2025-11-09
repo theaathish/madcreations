@@ -10,7 +10,6 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { state, dispatch } = useCart();
   const [imageError, setImageError] = useState(false);
-  const [hasTriedFallback, setHasTriedFallback] = useState(false);
 
   // Check if split poster requirements are met
   const checkSplitPosterRequirements = () => {
@@ -90,32 +89,44 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   };
 
   const getImageSrc = () => {
-    if (imageError || hasTriedFallback) {
+    // If there was an error, use fallback immediately
+    if (imageError) {
       return 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400';
     }
 
     const firstImage = product.images?.[0];
-    console.log(`🔍 ProductCard processing image for ${product.name}:`, {
-      hasImages: !!product.images,
-      imageCount: product.images?.length || 0,
-      firstImageType: typeof firstImage,
-      firstImageLength: firstImage?.length || 0,
-      firstImageStart: firstImage?.substring(0, 30) || 'N/A'
-    });
     
-    if (firstImage && typeof firstImage === 'string' && firstImage.length > 100) {
-      // Check if it's a proper data URL
-      if (firstImage.startsWith('data:image/')) {
-        console.log(`✅ ProductCard: Using proper data URL for ${product.name}`);
-        return firstImage;
-      } else if (firstImage.startsWith('/9j/') || firstImage.match(/^[A-Za-z0-9+/]/)) {
-        // If it's raw base64 without data URL prefix, add it
-        console.log(`🔧 ProductCard: Adding data URL prefix for ${product.name}`);
-        return `data:image/jpeg;base64,${firstImage}`;
-      }
+    // If no images array or empty, use fallback
+    if (!product.images || product.images.length === 0 || !firstImage) {
+      return 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400';
     }
     
-    console.log(`⚠️ ProductCard: Using fallback image for ${product.name}`);
+    // If not a string, use fallback
+    if (typeof firstImage !== 'string') {
+      return 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400';
+    }
+    
+    // If it's already a valid URL (http/https), return it
+    if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
+      return firstImage;
+    }
+    
+    // Check if it's a proper data URL
+    if (firstImage.startsWith('data:image/')) {
+      return firstImage;
+    }
+    
+    // If the string is too short to be base64, use fallback
+    if (firstImage.length < 100) {
+      return 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400';
+    }
+    
+    // If it's raw base64 without data URL prefix, add it
+    if (firstImage.startsWith('/9j/') || firstImage.match(/^[A-Za-z0-9+/]/)) {
+      return `data:image/jpeg;base64,${firstImage}`;
+    }
+    
+    // Fallback if format is unrecognized
     return 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400';
   };
 
@@ -130,17 +141,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             src={getImageSrc()}
             alt={product.name}
             className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => {
-              if (!hasTriedFallback) {
-                console.error(`❌ ProductCard image failed for ${product.name}, trying fallback`);
+            onError={() => {
+              // Only handle error once to prevent infinite loop
+              // Silently set error state and let fallback image load
+              if (!imageError) {
                 setImageError(true);
-                setHasTriedFallback(true);
-                const target = e.target as HTMLImageElement;
-                target.src = 'https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400';
               }
-            }}
-            onLoad={() => {
-              console.log(`✅ ProductCard image loaded successfully for ${product.name}`);
             }}
           />
           

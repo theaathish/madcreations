@@ -95,7 +95,29 @@ const Signup: React.FC = () => {
             </div>
           )}
 
+          {/* Info Banner */}
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <MapPin className="h-5 w-5 text-blue-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Quick Checkout
+                </h3>
+                <p className="mt-1 text-sm text-blue-700">
+                  Your profile details will be automatically saved and used for checkout. No need to re-enter them!
+                </p>
+              </div>
+            </div>
+          </div>
+
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Account Information */}
+            <div className="border-b border-gray-200 pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
+            </div>
+            
             <div>
               <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
                 Full Name
@@ -134,15 +156,22 @@ const Signup: React.FC = () => {
               </div>
             </div>
 
+            {/* Shipping Information */}
+            <div className="border-b border-gray-200 pb-4 pt-2">
+              <h3 className="text-lg font-medium text-gray-900 mb-1">Shipping Information</h3>
+              <p className="text-sm text-gray-500">This information will be used for order delivery</p>
+            </div>
+
             <div>
               <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
-                Phone Number
+                Phone Number <span className="text-red-500">*</span>
               </label>
               <div className="mt-1 relative">
                 <input
                   id="phoneNumber"
                   name="phoneNumber"
                   type="tel"
+                  required
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
@@ -155,12 +184,13 @@ const Signup: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                  City
+                  City <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="city"
                   name="city"
                   type="text"
+                  required
                   value={formData.city}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
@@ -169,11 +199,12 @@ const Signup: React.FC = () => {
               </div>
               <div>
                 <label htmlFor="state" className="block text-sm font-medium text-gray-700">
-                  State
+                  State <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="state"
                   name="state"
+                  required
                   value={formData.state}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
@@ -213,13 +244,14 @@ const Signup: React.FC = () => {
 
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                Address
+                Address <span className="text-red-500">*</span>
               </label>
               <div className="mt-1 relative">
                 <textarea
                   id="address"
                   name="address"
                   rows={3}
+                  required
                   value={formData.address}
                   onChange={handleChange}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
@@ -231,17 +263,24 @@ const Signup: React.FC = () => {
 
             <div>
               <label htmlFor="pincode" className="block text-sm font-medium text-gray-700">
-                Pincode
+                Pincode <span className="text-red-500">*</span>
               </label>
               <input
                 id="pincode"
                 name="pincode"
                 type="text"
+                required
                 value={formData.pincode}
                 onChange={handleChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
                 placeholder="Enter pincode"
               />
+            </div>
+
+            {/* Password Section */}
+            <div className="border-b border-gray-200 pb-4 pt-2">
+              <h3 className="text-lg font-medium text-gray-900 mb-1">Security</h3>
+              <p className="text-sm text-gray-500">Choose a strong password for your account</p>
             </div>
 
             <div>

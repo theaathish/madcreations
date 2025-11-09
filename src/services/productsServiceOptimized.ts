@@ -74,7 +74,7 @@ export const optimizedProductsService = {
     }
 
     try {
-      console.time(`⏱️ Fetch products ${category || 'all'}`);
+      const startTime = performance.now();
       
       const productsRef = collection(db, 'products');
       const constraints: QueryConstraint[] = [];
@@ -104,7 +104,8 @@ export const optimizedProductsService = {
       const newLastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
       const hasMore = querySnapshot.docs.length === pageSize;
 
-      console.timeEnd(`⏱️ Fetch products ${category || 'all'}`);
+      const duration = performance.now() - startTime;
+      console.log(`⏱️ Fetch products ${category || 'all'}: ${duration.toFixed(2)}ms`);
       console.log(`📦 Fetched ${products.length} products`);
 
       // Cache first page only
@@ -137,7 +138,7 @@ export const optimizedProductsService = {
     }
 
     try {
-      console.time(`⏱️ Fetch categories ${categories.join(', ')}`);
+      const startTime = performance.now();
       
       // Fetch all categories in parallel
       const promises = categories.map(async (category) => {
@@ -155,7 +156,8 @@ export const optimizedProductsService = {
         return bTime - aTime;
       });
 
-      console.timeEnd(`⏱️ Fetch categories ${categories.join(', ')}`);
+      const duration = performance.now() - startTime;
+      console.log(`⏱️ Fetch categories ${categories.join(', ')}: ${duration.toFixed(2)}ms`);
       console.log(`📦 Total products: ${allProducts.length}`);
 
       // Cache result
@@ -283,12 +285,28 @@ export const optimizedImageService = {
   imageCache: new Map<string, string[]>(),
 
   /**
+   * Validate base64 string
+   */
+  isValidBase64(str: string): boolean {
+    try {
+      // Check if it's valid base64
+      const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
+      // Remove whitespace for testing
+      const cleaned = str.replace(/\s/g, '');
+      return base64Regex.test(cleaned) && cleaned.length > 100;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  /**
    * Get product images with caching
    */
   async getProductImages(productId: string): Promise<string[]> {
     // Check cache first
     if (this.imageCache.has(productId)) {
-      return this.imageCache.get(productId)!;
+      const cached = this.imageCache.get(productId)!;
+      return cached;
     }
 
     try {
@@ -300,23 +318,54 @@ export const optimizedImageService = {
       );
       const querySnapshot = await getDocs(q);
 
-      const images = querySnapshot.docs.map(doc => {
+      if (querySnapshot.docs.length === 0) {
+        console.warn(`⚠️ No image documents found for product: ${productId}`);
+        this.imageCache.set(productId, []);
+        return [];
+      }
+
+      const images = querySnapshot.docs.map((doc, index) => {
         const data = doc.data();
         const imageData = data.imageData;
         
-        // Fix image format if needed
-        if (imageData && !imageData.startsWith('data:image/')) {
-          return `data:image/jpeg;base64,${imageData}`;
+        if (!imageData) {
+          return null;
         }
+        
+        // Validate that it's a reasonable length for an image
+        if (imageData.length < 100) {
+          console.warn(`⚠️ Image data too short for product ${productId} image ${index}`);
+          return null;
+        }
+        
+        // Fix image format if needed
+        if (!imageData.startsWith('data:image/') && !imageData.startsWith('http')) {
+          // Validate base64 format using helper
+          if (!this.isValidBase64(imageData)) {
+            console.warn(`⚠️ Invalid base64 format for product ${productId} image ${index}`);
+            return null;
+          }
+          
+          // Assume it's base64 encoded JPEG
+          const fixedImage = `data:image/jpeg;base64,${imageData}`;
+          return fixedImage;
+        }
+        
         return imageData;
-      }).filter(Boolean);
+      }).filter(Boolean) as string[];
 
-      // Cache images
+      if (images.length === 0) {
+        console.warn(`⚠️ No valid images for product ${productId}`);
+      }
+
+      // Cache images (even if empty array)
       this.imageCache.set(productId, images);
 
       return images;
     } catch (error) {
-      console.error(`Error loading images for product ${productId}:`, error);
+      console.error(`❌ Error loading images for product ${productId}:`, error);
+      // Cache empty array to avoid retrying
+      this.imageCache.set(productId, []);
       return [];
     }
   },
@@ -324,16 +373,44 @@ export const optimizedImageService = {
   /**
    * Batch load images for multiple products (parallel)
    */
-  async batchLoadImages(productIds: string[]): Promise<Map<string, string[]>> {
-    console.time('⏱️ Batch load images');
+  async batchLoadImages(productIds: string[], label?: string): Promise<Map<string, string[]>> {
+    // Use unique timer label with timestamp to avoid conflicts
+    const timerLabel = label || `⏱️ Batch load images ${Date.now()}`;
+    const startTime = performance.now(); // Use performance.now() instead of console.time
     
     const results = new Map<string, string[]>();
     
-    // Load images in parallel (max 5 at a time to avoid overwhelming Firestore)
-    const batchSize = 5;
-    for (let i = 0; i < productIds.length; i += batchSize) {
-      const batch = productIds.slice(i, i + batchSize);
-      const promises = batch.map(id => this.getProductImages(id));
+    // Filter out products that already have cached images
+    const uncachedIds = productIds.filter(id => !this.imageCache.has(id));
+    
+    // Return cached images immediately
+    productIds.forEach(id => {
+      if (this.imageCache.has(id)) {
+        results.set(id, this.imageCache.get(id)!);
+      }
+    });
+    
+    if (uncachedIds.length === 0) {
+      const duration = performance.now() - startTime;
+      console.log(`✅ All ${productIds.length} images loaded from cache (${duration.toFixed(2)}ms)`);
+      return results;
+    }
+    
+    console.log(`📥 Loading ${uncachedIds.length} images (${productIds.length - uncachedIds.length} from cache)`);
+    
+    // Load images in parallel (max 3 at a time to avoid overwhelming Firestore and browser)
+    const batchSize = 3;
+    for (let i = 0; i < uncachedIds.length; i += batchSize) {
+      const batch = uncachedIds.slice(i, i + batchSize);
+      
+      // Use Promise.allSettled to continue even if some fail
+      const promises = batch.map(id => 
+        this.getProductImages(id).catch(err => {
+          console.error(`Failed to load images for ${id}:`, err);
+          return []; // Return empty array on error
+        })
+      );
+      
       const batchResults = await Promise.all(promises);
       
       batch.forEach((id, index) => {
@@ -341,7 +418,8 @@ export const optimizedImageService = {
       });
     }
 
-    console.timeEnd('⏱️ Batch load images');
+    const duration = performance.now() - startTime;
+    console.log(`${timerLabel}: ${duration.toFixed(2)}ms`);
     return results;
   },
 

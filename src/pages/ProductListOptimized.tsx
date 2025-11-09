@@ -11,10 +11,10 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
-import { FiFilter, FiX, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiLoader } from 'react-icons/fi';
+import { FiFilter, FiChevronLeft, FiChevronRight, FiLoader } from 'react-icons/fi';
 import { optimizedProductsService, optimizedImageService } from '../services/productsServiceOptimized';
 
 const ProductListOptimized: React.FC = () => {
@@ -22,9 +22,7 @@ const ProductListOptimized: React.FC = () => {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
   
   // Filter states
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
@@ -94,7 +92,7 @@ const ProductListOptimized: React.FC = () => {
   
   // Client-side filtering (fast, already loaded data)
   useEffect(() => {
-    console.time('⏱️ Client-side filtering');
+    const startTime = performance.now();
     let result = [...allProducts];
     
     // Filter by poster type
@@ -123,7 +121,8 @@ const ProductListOptimized: React.FC = () => {
       );
     }
     
-    console.timeEnd('⏱️ Client-side filtering');
+    const duration = performance.now() - startTime;
+    console.log(`⏱️ Client-side filtering: ${duration.toFixed(2)}ms`);
     console.log(`✅ Filtered: ${allProducts.length} → ${result.length} products`);
     
     setFilteredProducts(result);
@@ -136,7 +135,39 @@ const ProductListOptimized: React.FC = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentProducts = filteredProducts.slice(startIndex, endIndex);
   
-  // Scroll to top when page changes
+  // Load images for current page when page changes
+  useEffect(() => {
+    if (!allProducts.length) return; // Wait for products to load
+    
+    const loadCurrentPageImages = async () => {
+      const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+      const endIdx = startIdx + ITEMS_PER_PAGE;
+      const currentPageProducts = allProducts.slice(startIdx, endIdx);
+      
+      const currentProductIds = currentPageProducts
+        .filter(p => !p.images || p.images.length === 0)
+        .map(p => p.id);
+      
+      if (currentProductIds.length === 0) return; // All images already loaded
+      
+      console.log(`📸 Loading images for page ${currentPage} (${currentProductIds.length} products)`);
+      const imagesMap = await optimizedImageService.batchLoadImages(
+        currentProductIds, 
+        `⏱️ Page ${currentPage} images ${Date.now()}`
+      );
+      
+      // Update products with loaded images
+      setAllProducts(prev => prev.map(product => {
+        const images = imagesMap.get(product.id);
+        if (images && images.length > 0) {
+          return { ...product, images };
+        }
+        return product;
+      }));
+    };
+    
+    loadCurrentPageImages();
+  }, [currentPage, allProducts.length]); // Only depend on page and products length, not the products themselves  // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
@@ -150,10 +181,14 @@ const ProductListOptimized: React.FC = () => {
 
   // Load products (optimized)
   useEffect(() => {
+    let isMounted = true; // Track if component is still mounted
+    
     const loadProducts = async () => {
       try {
         console.log('🚀 Starting optimized product load...');
-        console.time('⏱️ Total load time');
+        console.log('📍 Category:', category);
+        console.log('📍 isMounted:', isMounted);
+        const loadStartTime = performance.now(); // Use performance.now() instead of console.time
         setLoading(true);
         
         let fetchedProducts: Product[] = [];
@@ -172,7 +207,6 @@ const ProductListOptimized: React.FC = () => {
             useCache: true
           });
           fetchedProducts = result.products;
-          setHasMore(result.hasMore);
         } else {
           // Load all products (first page only)
           const result = await optimizedProductsService.getProducts({
@@ -180,39 +214,61 @@ const ProductListOptimized: React.FC = () => {
             useCache: true
           });
           fetchedProducts = result.products;
-          setHasMore(result.hasMore);
         }
 
         console.log(`📦 Loaded ${fetchedProducts.length} products`);
 
-        // Batch load images for visible products only (first 12)
-        const visibleProductIds = fetchedProducts.slice(0, 12).map(p => p.id);
-        console.time('⏱️ Batch load images');
-        const imagesMap = await optimizedImageService.batchLoadImages(visibleProductIds);
-        console.timeEnd('⏱️ Batch load images');
+        // Batch load images for first 2 pages (24 products) for better UX
+        const initialPageProducts = 24;
+        const visibleProductIds = fetchedProducts.slice(0, initialPageProducts).map(p => p.id);
+        const imagesMap = await optimizedImageService.batchLoadImages(visibleProductIds, `⏱️ Batch load images (visible) ${Date.now()}`);
 
-        // Attach images to products
+        console.log('📦 Images loaded:', {
+          requestedProducts: visibleProductIds.length,
+          imagesMapSize: imagesMap.size,
+          productsWithImages: Array.from(imagesMap.entries()).map(([id, imgs]) => ({
+            id,
+            imageCount: imgs.length
+          }))
+        });
+
+        // Only update state if component is still mounted
+        if (!isMounted) return;
+
+        // Attach images to products - only set products after images are loaded
         const productsWithImages = fetchedProducts.map(product => {
           const images = imagesMap.get(product.id);
+          const finalImages = images && images.length > 0 ? images : [];
+          
+          if (!images || images.length === 0) {
+            console.warn(`⚠️ No images found for product: ${product.name} (${product.id}) - will use fallback`);
+          }
+          
           return {
             ...product,
-            images: images && images.length > 0 
-              ? images 
-              : ['https://images.pexels.com/photos/1020315/pexels-photo-1020315.jpeg?auto=compress&cs=tinysrgb&w=400']
+            images: finalImages
           };
         });
 
+        // Set products immediately with loaded images
         setAllProducts(productsWithImages);
         setFilteredProducts(productsWithImages);
         
-        console.timeEnd('⏱️ Total load time');
-        console.log('✅ Products loaded successfully!');
+        const loadEndTime = performance.now();
+        console.log(`✅ Products loaded successfully in ${(loadEndTime - loadStartTime).toFixed(2)}ms`);
 
-        // Lazy load remaining images in background
-        if (fetchedProducts.length > 12) {
-          setTimeout(() => {
-            const remainingIds = fetchedProducts.slice(12).map(p => p.id);
-            optimizedImageService.batchLoadImages(remainingIds).then(remainingImages => {
+        // Lazy load remaining images in background (only if component is mounted)
+        if (isMounted && fetchedProducts.length > initialPageProducts) {
+          setTimeout(async () => {
+            if (!isMounted) return; // Check again before starting background load
+            
+            try {
+              const remainingIds = fetchedProducts.slice(initialPageProducts).map(p => p.id);
+              console.log(`🔄 Background loading ${remainingIds.length} remaining images...`);
+              const remainingImages = await optimizedImageService.batchLoadImages(remainingIds, `⏱️ Batch load images (background) ${Date.now()}`);
+              
+              if (!isMounted) return; // Check before updating state
+              
               setAllProducts(prev => prev.map(product => {
                 const images = remainingImages.get(product.id);
                 if (images && images.length > 0) {
@@ -220,36 +276,34 @@ const ProductListOptimized: React.FC = () => {
                 }
                 return product;
               }));
-            });
-          }, 1000);
+              
+              console.log('✅ Background image loading complete');
+            } catch (error) {
+              console.error('❌ Error loading background images:', error);
+            }
+          }, 500); // Reduced delay for faster background loading
         }
 
       } catch (error) {
         console.error('❌ Error loading products:', error);
-        setAllProducts([]);
-        setFilteredProducts([]);
+        if (isMounted) {
+          setAllProducts([]);
+          setFilteredProducts([]);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadProducts();
-  }, [category]);
-
-  // Load more products (if needed)
-  const loadMore = async () => {
-    if (!hasMore || loadingMore) return;
     
-    setLoadingMore(true);
-    try {
-      // Implementation for load more if needed
-      console.log('Loading more products...');
-    } catch (error) {
-      console.error('Error loading more products:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [category]);
 
   if (loading) {
     return (

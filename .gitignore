@@ -46,3 +46,18 @@ QUICK_*.md
 addTest*.js
 addSample*.js
 add*Order*.js
+
+# Backup and temporary files
+*.backup
+*.new
+*.tmp
+*.bak
+
+# IDE and editor files
+.vscode/settings.json
+*.swp
+*.swo
+
+# Mock and test data
+mockData.ts
+testData.ts

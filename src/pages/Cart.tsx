@@ -69,8 +69,16 @@ const Cart: React.FC = () => {
       return;
     }
 
-    if (!userProfile?.phoneNumber) {
-      setError('Please complete your profile with a phone number before placing an order.');
+    // Check if user has completed all required profile fields
+    const missingFields = [];
+    if (!userProfile?.phoneNumber) missingFields.push('phone number');
+    if (!userProfile?.address) missingFields.push('address');
+    if (!userProfile?.city) missingFields.push('city');
+    if (!userProfile?.state) missingFields.push('state');
+    if (!userProfile?.pincode) missingFields.push('pincode');
+
+    if (missingFields.length > 0) {
+      setError(`Please complete your profile with the following details before placing an order: ${missingFields.join(', ')}.`);
       setTimeout(() => navigate('/profile'), 2000);
       return;
     }
@@ -319,6 +327,38 @@ const Cart: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Order Summary</h2>
+
+              {/* Shipping Address Section */}
+              {user && userProfile && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-900">Shipping Address</h3>
+                    <button
+                      onClick={() => navigate('/profile')}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p className="font-medium">{userProfile.displayName}</p>
+                    {userProfile.phoneNumber && <p>{userProfile.phoneNumber}</p>}
+                    {userProfile.address && <p>{userProfile.address}</p>}
+                    {(userProfile.city || userProfile.state || userProfile.pincode) && (
+                      <p>
+                        {[userProfile.city, userProfile.state, userProfile.pincode]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </p>
+                    )}
+                    {!userProfile.phoneNumber && !userProfile.address && (
+                      <p className="text-red-600 text-xs mt-2">
+                        ⚠️ Please complete your profile before checkout
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">

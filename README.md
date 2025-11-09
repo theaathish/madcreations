@@ -54,7 +54,7 @@ src/
 │   └── ProductCard.tsx # Product display component
 ├── pages/              # Page components
 │   ├── Home.tsx        # Landing page with featured products
-│   ├── ProductList.tsx # Product catalog with filtering
+│   ├── ProductListOptimized.tsx # Product catalog with filtering
 │   ├── Cart.tsx        # Shopping cart
 │   ├── Login.tsx       # User login
 │   ├── Signup.tsx      # User registration

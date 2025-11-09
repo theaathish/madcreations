@@ -16,6 +16,12 @@ export interface Product {
   reviewCount?: number;
   createdAt?: any;
   updatedAt?: any;
+  isMultiSize?: boolean;
+  sizeOptions?: Array<{
+    size: string;
+    price: number;
+    originalPrice?: number;
+  }>;
 }
 
 export interface CartItem {

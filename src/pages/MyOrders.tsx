@@ -26,13 +26,13 @@ const MyOrders: React.FC = () => {
 
   const loadOrders = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       console.log('Fetching orders for user:', user.uid);
       const userOrders = await ordersService.getUserOrders(user.uid);
       console.log('Received orders:', userOrders);
-      
+
       // Normalize orders to handle both old and new formats
       const normalizedOrders = userOrders.map(order => {
         // Ensure items is always an array
@@ -40,7 +40,7 @@ const MyOrders: React.FC = () => {
           console.warn('Order items is not an array:', order.id, order.items);
           return { ...order, items: [] };
         }
-        
+
         // Handle items that might have customizations as strings (new format)
         const normalizedItems = order.items.map((item: any) => {
           // If item has customizations as string, try to parse it
@@ -57,10 +57,10 @@ const MyOrders: React.FC = () => {
           }
           return item;
         });
-        
+
         return { ...order, items: normalizedItems };
       });
-      
+
       setOrders(normalizedOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
@@ -71,7 +71,7 @@ const MyOrders: React.FC = () => {
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
-    
+
     let dateObj;
     if (date?.toDate) {
       dateObj = date.toDate();
@@ -82,7 +82,7 @@ const MyOrders: React.FC = () => {
     } else {
       return 'N/A';
     }
-    
+
     return dateObj.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
@@ -216,7 +216,7 @@ const MyOrders: React.FC = () => {
                           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-green-800">📦 Tracking Number:</span>
                         <div className="flex items-center space-x-2">
